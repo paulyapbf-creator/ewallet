@@ -1,0 +1,30 @@
+const DuitNowGateway = require('./gateways/DuitNowGateway');
+
+// Registry of available gateways
+const GATEWAYS = {
+  duitnow: DuitNowGateway
+};
+
+/**
+ * Get a payment gateway instance.
+ * @param {string} provider - Gateway name (e.g., 'duitnow')
+ * @param {object} config - Provider-specific credentials and settings
+ * @returns {BaseGateway} Gateway instance
+ */
+function getGateway(provider, config) {
+  const GatewayClass = GATEWAYS[provider];
+  if (!GatewayClass) {
+    throw new Error(`Unknown payment gateway: "${provider}". Available: ${Object.keys(GATEWAYS).join(', ')}`);
+  }
+  return new GatewayClass(config);
+}
+
+/**
+ * List all registered gateway names.
+ * @returns {string[]}
+ */
+function listGateways() {
+  return Object.keys(GATEWAYS);
+}
+
+module.exports = { getGateway, listGateways };

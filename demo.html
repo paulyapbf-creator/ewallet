@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POS Terminal - DuitNow Payment</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+  .container { width: 420px; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); overflow: hidden; }
+  .header { background: linear-gradient(135deg, #e31837, #c41230); color: #fff; padding: 20px 24px; text-align: center; }
+  .header h1 { font-size: 18px; font-weight: 600; }
+  .header p { font-size: 12px; opacity: 0.85; margin-top: 4px; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 11px; margin-top: 6px; }
+  .badge-ws { background: rgba(255,255,255,0.2); }
+  .body { padding: 24px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 5px; }
+  .field input { width: 100%; padding: 11px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 15px; outline: none; transition: border 0.2s; }
+  .field input:focus { border-color: #e31837; }
+  .amount-input { font-size: 28px !important; text-align: center; font-weight: 700; }
+  .btn { width: 100%; padding: 13px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-pay { background: linear-gradient(135deg, #e31837, #c41230); color: #fff; }
+  .btn-pay:hover { opacity: 0.9; }
+  .btn-pay:disabled { background: #ccc; cursor: not-allowed; }
+  .btn-cancel { background: #f5f5f5; color: #e31837; border: 2px solid #e31837; margin-top: 10px; }
+  .btn-new { background: #f5f5f5; color: #333; margin-top: 10px; }
+  .btn-sim { background: #f0fdf4; color: #16a34a; border: 2px solid #16a34a; margin-top: 10px; font-size: 13px; }
+  .btn-sim:hover { background: #dcfce7; }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .qr-box { text-align: center; padding: 16px 0; }
+  .qr-box img { border: 3px solid #e31837; border-radius: 12px; padding: 8px; background: #fff; }
+  .qr-label { font-size: 13px; color: #888; margin-top: 10px; }
+  .qr-amount { font-size: 32px; font-weight: 800; color: #1a1a2e; margin: 8px 0; }
+
+  .spinner { width: 40px; height: 40px; border: 3px solid #e0e0e0; border-top-color: #e31837; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  .waiting-text { animation: pulse 2s ease-in-out infinite; color: #e31837; font-weight: 600; font-size: 14px; }
+  .status-icon { font-size: 56px; margin-bottom: 12px; }
+  .status-title { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+
+  .method-tag { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-top: 6px; }
+  .method-webhook { background: #dcfce7; color: #16a34a; }
+  .method-poll { background: #fef3c7; color: #d97706; }
+
+  .receipt { background: #f9f9f9; border-radius: 10px; padding: 14px; margin: 14px 0; text-align: left; }
+  .receipt-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 13px; }
+  .receipt-row span:first-child { color: #888; }
+  .receipt-row span:last-child { font-weight: 600; }
+  .divider { border-top: 1px dashed #ddd; margin: 6px 0; }
+
+  .log { margin-top: 14px; background: #1a1a2e; border-radius: 10px; padding: 10px; max-height: 140px; overflow-y: auto; }
+  .log p { font-size: 10px; font-family: monospace; color: #8892b0; margin: 2px 0; }
+  .log p.ok { color: #64ffda; } .log p.err { color: #ff6b6b; }
+  .log p.warn { color: #ffd93d; } .log p.ws { color: #c084fc; }
+
+  .mode-toggle { display: flex; gap: 8px; margin-bottom: 14px; }
+  .mode-btn { flex: 1; padding: 9px; border: 2px solid #e0e0e0; border-radius: 10px; background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; text-align: center; }
+  .mode-btn.active { border-color: #e31837; background: #fef2f2; color: #e31837; }
+
+  .customer-link { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px; margin-top: 10px; text-align: center; font-size: 12px; color: #0369a1; }
+  .customer-link a { color: #0369a1; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>POS Terminal</h1>
+    <p>DuitNow QR Payment</p>
+    <div class="badge badge-ws" id="wsStatus">connecting...</div>
+  </div>
+  <div class="body">
+
+    <!-- FORM SCREEN -->
+    <div id="formScreen" class="screen active">
+      <div class="field">
+        <label>Confirmation Method</label>
+        <div class="mode-toggle">
+          <div class="mode-btn active" id="modeWebhook" onclick="setMode('webhook')">Webhook</div>
+          <div class="mode-btn" id="modePoll" onclick="setMode('poll')">Polling</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>Amount (RM)</label>
+        <input type="number" id="amount" class="amount-input" value="1.00" min="0.01" step="0.01">
+      </div>
+      <div class="field">
+        <label>Reference No</label>
+        <input type="text" id="refNo" placeholder="Auto-generated">
+      </div>
+      <div class="field">
+        <label>Terminal Code</label>
+        <input type="text" id="terminal" value="POS-01">
+      </div>
+      <button class="btn btn-pay" onclick="startPayment()">Generate QR & Pay</button>
+      <div class="customer-link">
+        Open <a href="/pay" target="_blank">/pay</a> on your phone to simulate customer scanning
+      </div>
+    </div>
+
+    <!-- QR DISPLAY SCREEN -->
+    <div id="qrScreen" class="screen">
+      <div class="qr-box">
+        <div class="qr-amount" id="qrAmount"></div>
+        <img id="qrImage" src="" alt="DuitNow QR">
+        <div class="qr-label">Scan with DuitNow / Banking App</div>
+        <div class="qr-label" id="qrRef" style="font-family:monospace"></div>
+      </div>
+      <div class="spinner" style="margin-top:8px"></div>
+      <div class="waiting-text" style="text-align:center">Waiting for customer payment...</div>
+      <button class="btn btn-sim" onclick="simulatePay()">Simulate Customer Payment</button>
+      <button class="btn btn-cancel" onclick="cancelPayment()">Cancel</button>
+    </div>
+
+    <!-- SUCCESS SCREEN -->
+    <div id="successScreen" class="screen" style="text-align:center">
+      <div class="status-icon">&#10003;</div>
+      <div class="status-title" style="color:#16a34a">Payment Successful</div>
+      <div id="confirmedBy"></div>
+      <div class="receipt" id="receipt"></div>
+      <button class="btn btn-new" onclick="reset()">New Payment</button>
+    </div>
+
+    <!-- FAIL SCREEN -->
+    <div id="failScreen" class="screen" style="text-align:center">
+      <div class="status-icon">&#10007;</div>
+      <div class="status-title" style="color:#e31837">Payment Failed</div>
+      <div id="failMsg" style="font-size:14px;color:#666;margin:8px 0"></div>
+      <button class="btn btn-new" onclick="reset()">Try Again</button>
+    </div>
+
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script>
+let currentRef = '', currentExtRef = '', paymentMode = 'webhook', resolved = false;
+
+// --- WebSocket ---
+let ws;
+function connectWs() {
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  ws.onopen = () => {
+    document.getElementById('wsStatus').textContent = 'connected';
+    document.getElementById('wsStatus').style.background = 'rgba(100,255,218,0.3)';
+    log('WebSocket connected', 'ws');
+  };
+  ws.onclose = () => {
+    document.getElementById('wsStatus').textContent = 'disconnected';
+    document.getElementById('wsStatus').style.background = 'rgba(255,107,107,0.3)';
+    setTimeout(connectWs, 2000);
+  };
+  ws.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'payment_update' && data.referenceNo === currentRef) {
+      log('WEBHOOK: ' + data.status, 'ws');
+      if (data.success && !resolved) { resolved = true; showSuccess(data, 'webhook'); }
+    }
+  };
+}
+connectWs();
+
+function setMode(m) {
+  paymentMode = m;
+  document.getElementById('modeWebhook').className = 'mode-btn' + (m === 'webhook' ? ' active' : '');
+  document.getElementById('modePoll').className = 'mode-btn' + (m === 'poll' ? ' active' : '');
+}
+
+function show(id) {
+  ['formScreen','qrScreen','successScreen','failScreen'].forEach(s =>
+    document.getElementById(s).className = 'screen' + (s === id ? ' active' : '')
+  );
+}
+
+function generateRef() { return 'DN-' + Date.now() + '-' + Math.random().toString(36).slice(2,6).toUpperCase(); }
+
+function log(msg, type = '') {
+  const el = document.getElementById('log');
+  el.innerHTML += '<p class="' + type + '">[' + new Date().toLocaleTimeString() + '] ' + msg + '</p>';
+  el.scrollTop = el.scrollHeight;
+}
+
+function showSuccess(data, method) {
+  show('successScreen');
+  const cls = method === 'webhook' ? 'method-webhook' : 'method-poll';
+  const label = method === 'webhook' ? 'Confirmed via Webhook' : 'Confirmed via Polling';
+  document.getElementById('confirmedBy').innerHTML = '<span class="method-tag ' + cls + '">' + label + '</span>';
+  document.getElementById('receipt').innerHTML =
+    '<div class="receipt-row"><span>Status</span><span style="color:#16a34a">PAID</span></div>' +
+    '<div class="divider"></div>' +
+    '<div class="receipt-row"><span>Amount</span><span>RM ' + parseFloat(data.amount).toFixed(2) + '</span></div>' +
+    '<div class="receipt-row"><span>Reference</span><span>' + data.referenceNo + '</span></div>' +
+    '<div class="receipt-row"><span>External Ref</span><span>' + (data.externalRefNo || currentExtRef) + '</span></div>' +
+    '<div class="receipt-row"><span>Service</span><span>' + (data.serviceName || 'DUITNOW') + '</span></div>' +
+    '<div class="divider"></div>' +
+    '<div class="receipt-row"><span>Method</span><span>' + label + '</span></div>' +
+    '<div class="receipt-row"><span>Time</span><span>' + new Date().toLocaleString() + '</span></div>';
+  log('Payment complete!', 'ok');
+}
+
+async function startPayment() {
+  const amount = parseFloat(document.getElementById('amount').value);
+  const terminalCode = document.getElementById('terminal').value.trim();
+  const referenceNo = document.getElementById('refNo').value.trim() || generateRef();
+  document.getElementById('refNo').value = referenceNo;
+  currentRef = referenceNo;
+  resolved = false;
+
+  if (!amount || amount <= 0) return alert('Enter a valid amount');
+  if (!terminalCode) return alert('Enter terminal code');
+
+  document.getElementById('log').innerHTML = '';
+  log('Creating DuitNow transaction...', 'warn');
+
+  try {
+    const res = await fetch('/api/payment/duitnow/create', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, referenceNo, terminalCode })
+    }).then(r => r.json());
+
+    if (!res.success) throw new Error(res.message || 'Create failed');
+
+    currentExtRef = res.externalRefNo;
+    log('Transaction created: ' + res.externalRefNo, 'ok');
+
+    // Show QR
+    const qrUrl = res.raw.QRCode;
+    document.getElementById('qrAmount').textContent = 'RM ' + amount.toFixed(2);
+    document.getElementById('qrImage').src = qrUrl || '';
+    document.getElementById('qrRef').textContent = referenceNo;
+    show('qrScreen');
+    log('QR displayed — waiting for customer', 'warn');
+
+    // Start polling as primary or fallback
+    if (paymentMode === 'webhook') {
+      log('Listening for webhook callback...', 'ws');
+      setTimeout(() => {
+        if (!resolved) { log('Starting poll fallback...', 'warn'); startPolling(referenceNo, terminalCode); }
+      }, 15000);
+    } else {
+      log('Polling for payment status...', 'warn');
+      startPolling(referenceNo, terminalCode);
+    }
+  } catch (err) {
+    log('Error: ' + err.message, 'err');
+    show('failScreen');
+    document.getElementById('failMsg').textContent = err.message;
+  }
+}
+
+async function startPolling(referenceNo, terminalCode) {
+  try {
+    const res = await fetch('/api/payment/duitnow/poll', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ referenceNo, terminalCode, intervalMs: 2000, maxAttempts: 60 })
+    }).then(r => r.json());
+
+    if (res.success && !resolved) { resolved = true; showSuccess(res, 'poll'); }
+    else if (!resolved) throw new Error(res.message || 'Payment not completed');
+  } catch (e) {
+    if (!resolved) { log('Poll error: ' + e.message, 'err'); }
+  }
+}
+
+async function simulatePay() {
+  log('Simulating customer payment...', 'warn');
+  await fetch('/mock/simulate-pay', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ referenceNo: currentRef })
+  });
+  log('Customer payment sent!', 'ok');
+}
+
+async function cancelPayment() {
+  resolved = true;
+  log('Cancelling...', 'warn');
+  try {
+    await fetch('/api/payment/duitnow/cancel', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactionNo: currentExtRef || currentRef, terminalCode: document.getElementById('terminal').value })
+    }).then(r => r.json());
+    log('Cancelled', 'ok');
+  } catch (e) { log('Cancel error: ' + e.message, 'err'); }
+  reset();
+}
+
+function reset() { show('formScreen'); document.getElementById('refNo').value = ''; currentRef = ''; currentExtRef = ''; resolved = false; }
+</script>
+</body>
+</html>

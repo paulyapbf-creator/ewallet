@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Customer - DuitNow Pay</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+  .container { width: 380px; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); overflow: hidden; }
+  .header { background: linear-gradient(135deg, #0369a1, #0284c7); color: #fff; padding: 20px; text-align: center; }
+  .header h1 { font-size: 18px; }
+  .header p { font-size: 12px; opacity: 0.8; margin-top: 4px; }
+  .body { padding: 20px; }
+
+  .scan-area { position: relative; width: 100%; aspect-ratio: 1; background: #000; border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+  .scan-area video { width: 100%; height: 100%; object-fit: cover; }
+  .scan-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+  .scan-frame { width: 200px; height: 200px; border: 3px solid rgba(255,255,255,0.8); border-radius: 12px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.4); }
+  .scan-line { position: absolute; width: 196px; height: 2px; background: #e31837; animation: scanline 2s ease-in-out infinite; }
+  @keyframes scanline { 0%,100% { top: calc(50% - 98px); } 50% { top: calc(50% + 96px); } }
+
+  .btn { width: 100%; padding: 13px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; margin-bottom: 8px; }
+  .btn-scan { background: #0369a1; color: #fff; }
+  .btn-scan:hover { background: #0284c7; }
+  .btn-pay { background: linear-gradient(135deg, #16a34a, #15803d); color: #fff; font-size: 18px; padding: 16px; }
+  .btn-pay:hover { opacity: 0.9; }
+  .btn-pay:disabled { background: #ccc; }
+  .btn-back { background: #f5f5f5; color: #333; }
+  .btn-manual { background: #f5f5f5; color: #0369a1; border: 1px solid #bae6fd; font-size: 13px; }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  .payment-info { text-align: center; padding: 16px 0; }
+  .payment-info .merchant { font-size: 14px; color: #666; margin-bottom: 4px; }
+  .payment-info .amount { font-size: 42px; font-weight: 800; color: #1a1a2e; }
+  .payment-info .ref { font-size: 12px; color: #999; font-family: monospace; margin-top: 8px; }
+  .payment-info .service { display: inline-block; background: #e31837; color: #fff; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; margin-top: 8px; }
+
+  .success-screen { text-align: center; padding: 30px 0; }
+  .success-screen .icon { font-size: 64px; margin-bottom: 12px; }
+  .success-screen .title { font-size: 22px; font-weight: 700; color: #16a34a; }
+  .success-screen .sub { font-size: 14px; color: #666; margin-top: 8px; }
+
+  .manual-input { margin: 12px 0; }
+  .manual-input input { width: 100%; padding: 11px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 14px; outline: none; font-family: monospace; }
+  .manual-input input:focus { border-color: #0369a1; }
+  .manual-input label { display: block; font-size: 12px; color: #666; margin-bottom: 5px; }
+
+  .msg { text-align: center; padding: 8px; font-size: 13px; border-radius: 8px; margin-bottom: 12px; }
+  .msg-err { background: #fef2f2; color: #e31837; }
+  .msg-info { background: #f0f9ff; color: #0369a1; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>DuitNow Pay</h1>
+    <p>Simulated Customer Banking App</p>
+  </div>
+  <div class="body">
+
+    <!-- SCAN / ENTER SCREEN -->
+    <div id="scanScreen" class="screen active">
+      <div id="cameraBox" class="scan-area" style="display:none">
+        <video id="video" autoplay playsinline></video>
+        <div class="scan-overlay">
+          <div class="scan-frame"></div>
+          <div class="scan-line"></div>
+        </div>
+      </div>
+      <div id="msgBox"></div>
+      <button class="btn btn-scan" id="scanBtn" onclick="startCamera()">Open Camera & Scan QR</button>
+      <button class="btn btn-manual" onclick="showManual()">Enter Reference Manually</button>
+      <div id="manualBox" style="display:none">
+        <div class="manual-input">
+          <label>Paste QR data or Reference No</label>
+          <input type="text" id="manualInput" placeholder="DN-1234567890-ABCD">
+        </div>
+        <button class="btn btn-scan" onclick="processManual()">Look Up</button>
+      </div>
+    </div>
+
+    <!-- CONFIRM PAYMENT SCREEN -->
+    <div id="confirmScreen" class="screen">
+      <div class="payment-info">
+        <div class="service">DuitNow</div>
+        <div class="merchant" id="payMerchant"></div>
+        <div class="amount" id="payAmount"></div>
+        <div class="ref" id="payRef"></div>
+      </div>
+      <button class="btn btn-pay" onclick="confirmPay()">Pay Now</button>
+      <button class="btn btn-back" onclick="backToScan()">Cancel</button>
+    </div>
+
+    <!-- SUCCESS SCREEN -->
+    <div id="doneScreen" class="screen">
+      <div class="success-screen">
+        <div class="icon">&#10003;</div>
+        <div class="title">Payment Sent!</div>
+        <div class="sub" id="doneSub"></div>
+      </div>
+      <button class="btn btn-back" onclick="backToScan()">Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let scannedData = null;
+let stream = null;
+let scanning = false;
+// Use current page origin so it works from any device on the network
+const API_BASE = location.origin;
+
+function show(id) {
+  ['scanScreen','confirmScreen','doneScreen'].forEach(s =>
+    document.getElementById(s).className = 'screen' + (s === id ? ' active' : '')
+  );
+}
+
+function showMsg(msg, type) {
+  document.getElementById('msgBox').innerHTML = msg ? '<div class="msg msg-' + type + '">' + msg + '</div>' : '';
+}
+
+function showManual() {
+  document.getElementById('manualBox').style.display = document.getElementById('manualBox').style.display === 'none' ? 'block' : 'none';
+}
+
+async function startCamera() {
+  showMsg('', '');
+  const camBox = document.getElementById('cameraBox');
+
+  if (scanning) {
+    stopCamera();
+    return;
+  }
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    const video = document.getElementById('video');
+    video.srcObject = stream;
+    camBox.style.display = 'block';
+    document.getElementById('scanBtn').textContent = 'Stop Camera';
+    scanning = true;
+
+    // Use BarcodeDetector if available
+    if ('BarcodeDetector' in window) {
+      const detector = new BarcodeDetector({ formats: ['qr_code'] });
+      const scanLoop = async () => {
+        if (!scanning) return;
+        try {
+          const barcodes = await detector.detect(video);
+          if (barcodes.length > 0) {
+            handleScan(barcodes[0].rawValue);
+            return;
+          }
+        } catch (e) {}
+        requestAnimationFrame(scanLoop);
+      };
+      scanLoop();
+    } else {
+      showMsg('Camera active — BarcodeDetector not supported in this browser. Use manual entry or try Chrome.', 'info');
+    }
+  } catch (e) {
+    showMsg('Camera access denied. Use manual entry instead.', 'err');
+  }
+}
+
+function stopCamera() {
+  scanning = false;
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  document.getElementById('cameraBox').style.display = 'none';
+  document.getElementById('scanBtn').textContent = 'Open Camera & Scan QR';
+}
+
+function handleScan(raw) {
+  stopCamera();
+  try {
+    const data = JSON.parse(raw);
+    if (data.ref && data.amount) {
+      scannedData = data;
+      document.getElementById('payMerchant').textContent = data.merchant || 'Merchant';
+      document.getElementById('payAmount').textContent = 'RM ' + parseFloat(data.amount).toFixed(2);
+      document.getElementById('payRef').textContent = 'Ref: ' + data.ref;
+      show('confirmScreen');
+      return;
+    }
+  } catch (e) {}
+  // Treat as reference number
+  scannedData = { ref: raw.trim(), amount: '0.00', merchant: '' };
+  document.getElementById('payMerchant').textContent = 'Merchant';
+  document.getElementById('payAmount').textContent = 'Confirm Payment?';
+  document.getElementById('payRef').textContent = 'Ref: ' + raw.trim();
+  show('confirmScreen');
+}
+
+function processManual() {
+  const val = document.getElementById('manualInput').value.trim();
+  if (!val) return;
+  handleScan(val);
+}
+
+async function confirmPay() {
+  if (!scannedData) return;
+  try {
+    const res = await fetch(API_BASE + '/mock/simulate-pay', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ referenceNo: scannedData.ref })
+    }).then(r => r.json());
+
+    if (res.success) {
+      document.getElementById('doneSub').textContent = 'RM ' + parseFloat(scannedData.amount).toFixed(2) + ' paid to merchant\nRef: ' + scannedData.ref;
+      show('doneScreen');
+    } else {
+      showMsg(res.message || 'Payment failed', 'err');
+      show('scanScreen');
+    }
+  } catch (e) {
+    showMsg('Network error', 'err');
+    show('scanScreen');
+  }
+}
+
+function backToScan() {
+  scannedData = null;
+  showMsg('', '');
+  document.getElementById('manualInput').value = '';
+  show('scanScreen');
+}
+</script>
+</body>
+</html>
