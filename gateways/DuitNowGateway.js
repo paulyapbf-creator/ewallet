@@ -170,27 +170,37 @@ class DuitNowGateway extends BaseGateway {
   // --- Internal HTTP helper ---
   async _post(endpoint, body) {
     const url = this.config.apiBaseUrl.replace(/\/+$/, '') + endpoint;
+    const isMock = url.includes('/mock/');
 
     console.log(`[DuitNow] POST ${url}`);
     console.log(`[DuitNow] Body:`, JSON.stringify(body));
 
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Accept': 'application/json'
+      },
       body: JSON.stringify(body)
     });
 
     const text = await res.text();
-    console.log(`[DuitNow] Response ${res.status}:`, text);
+    console.log(`[DuitNow] Response ${res.status}:`, text.substring(0, 500));
 
     if (!res.ok) {
       throw new Error(`DuitNow HTTP ${res.status}: ${text.substring(0, 200)}`);
     }
 
     try {
-      return JSON.parse(text);
+      const parsed = JSON.parse(text);
+      // ASMX services wrap response in {"d": "..."} — unwrap if present
+      if (parsed.d && !isMock) {
+        const inner = typeof parsed.d === 'string' ? JSON.parse(parsed.d) : parsed.d;
+        return inner;
+      }
+      return parsed;
     } catch (e) {
-      throw new Error(`DuitNow: Invalid response format — ${text.substring(0, 200)}`);
+      throw new Error(`DuitNow: Invalid response — ${text.substring(0, 200)}`);
     }
   }
 }
