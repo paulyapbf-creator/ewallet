@@ -175,14 +175,28 @@ class DuitNowGateway extends BaseGateway {
     console.log(`[DuitNow] POST ${url}`);
     console.log(`[DuitNow] Body:`, JSON.stringify(body));
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
+    let res;
+    if (isMock) {
+      // Mock server accepts JSON
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+    } else {
+      // J&C ASMX endpoint — try form-encoded first, then JSON
+      const formBody = Object.entries(body)
+        .map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v))
+        .join('&');
+
+      console.log(`[DuitNow] Form body: ${formBody}`);
+
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8' },
+        body: formBody
+      });
+    }
 
     const text = await res.text();
     console.log(`[DuitNow] Response ${res.status}:`, text.substring(0, 500));
@@ -192,15 +206,22 @@ class DuitNowGateway extends BaseGateway {
     }
 
     try {
+      // Try JSON first
       const parsed = JSON.parse(text);
-      // ASMX services wrap response in {"d": "..."} — unwrap if present
-      if (parsed.d && !isMock) {
-        const inner = typeof parsed.d === 'string' ? JSON.parse(parsed.d) : parsed.d;
-        return inner;
+      // ASMX may wrap in {"d": "..."}
+      if (parsed.d) {
+        return typeof parsed.d === 'string' ? JSON.parse(parsed.d) : parsed.d;
       }
       return parsed;
     } catch (e) {
-      throw new Error(`DuitNow: Invalid response — ${text.substring(0, 200)}`);
+      // ASMX may return XML — try to extract JSON from XML
+      const jsonMatch = text.match(/<string[^>]*>([\s\S]*?)<\/string>/);
+      if (jsonMatch) {
+        try {
+          return JSON.parse(jsonMatch[1]);
+        } catch (e2) {}
+      }
+      throw new Error(`DuitNow: Unexpected response — ${text.substring(0, 300)}`);
     }
   }
 }
