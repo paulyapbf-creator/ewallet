@@ -68,7 +68,7 @@ class DuitNowGateway extends BaseGateway {
       Signature: signature
     };
 
-    const raw = await this._post('/CheckTransaction', body);
+    const raw = await this._post('/CheckQRTransaction', body);
     return this.normalizeResponse(raw, { referenceNo });
   }
 

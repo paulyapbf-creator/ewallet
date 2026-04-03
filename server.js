@@ -93,7 +93,7 @@ app.post('/mock/Transaction', async (req, res) => {
   });
 });
 
-app.post('/mock/CheckTransaction', (req, res) => {
+app.post('/mock/CheckQRTransaction', (req, res) => {
   const ref = req.body.ReferenceNo;
   const txn = mockTransactions[ref];
   if (!txn) return res.json({ ResponseCode: '05', ResponseMessage: 'Not found' });
