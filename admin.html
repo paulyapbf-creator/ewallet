@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Settings - DuitNow Gateway</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 40px 16px; }
+  .container { width: 480px; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); overflow: hidden; }
+  .header { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; padding: 24px; text-align: center; }
+  .header h1 { font-size: 20px; font-weight: 600; }
+  .header p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
+  .body { padding: 24px; }
+
+  /* Login */
+  .login-box { text-align: center; padding: 20px 0; }
+  .login-box h2 { font-size: 16px; color: #333; margin-bottom: 16px; }
+
+  /* Form */
+  .section { margin-bottom: 20px; }
+  .section-title { font-size: 13px; font-weight: 700; color: #e31837; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 2px solid #fef2f2; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 5px; }
+  .field input, .field select { width: 100%; padding: 11px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 14px; outline: none; transition: border 0.2s; }
+  .field input:focus, .field select:focus { border-color: #1a1a2e; }
+  .field .hint { font-size: 11px; color: #999; margin-top: 4px; }
+  .field input[type="password"] { font-family: monospace; letter-spacing: 2px; }
+  .field input.secret { -webkit-text-security: disc; }
+
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #f9f9f9; border-radius: 10px; margin-bottom: 14px; }
+  .toggle-row span { font-size: 14px; font-weight: 600; color: #333; }
+  .toggle { position: relative; width: 48px; height: 26px; cursor: pointer; }
+  .toggle input { display: none; }
+  .toggle .slider { position: absolute; inset: 0; background: #ccc; border-radius: 26px; transition: 0.3s; }
+  .toggle .slider:before { content: ''; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
+  .toggle input:checked + .slider { background: #16a34a; }
+  .toggle input:checked + .slider:before { transform: translateX(22px); }
+
+  .btn { width: 100%; padding: 13px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-save { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; }
+  .btn-save:hover { opacity: 0.9; }
+  .btn-test { background: #f0fdf4; color: #16a34a; border: 2px solid #16a34a; margin-top: 8px; }
+  .btn-test:hover { background: #dcfce7; }
+  .btn-login { background: linear-gradient(135deg, #e31837, #c41230); color: #fff; }
+  .btn-back { background: #f5f5f5; color: #333; margin-top: 8px; }
+
+  .msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; display: none; }
+  .msg.show { display: block; }
+  .msg-ok { background: #dcfce7; color: #16a34a; }
+  .msg-err { background: #fef2f2; color: #e31837; }
+
+  .status-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+  .status-chip { flex: 1; text-align: center; padding: 8px; border-radius: 8px; font-size: 12px; font-weight: 600; }
+  .chip-sandbox { background: #fef3c7; color: #d97706; }
+  .chip-live { background: #dcfce7; color: #16a34a; }
+  .chip-off { background: #f5f5f5; color: #999; }
+
+  .callback-url { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px; font-size: 12px; font-family: monospace; color: #0369a1; word-break: break-all; margin-bottom: 14px; }
+  .callback-url .label { font-family: -apple-system, sans-serif; font-weight: 600; font-size: 11px; color: #555; margin-bottom: 4px; }
+  .copy-btn { background: none; border: 1px solid #bae6fd; border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; color: #0369a1; margin-left: 6px; }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>Admin Settings</h1>
+    <p>DuitNow Payment Gateway Configuration</p>
+  </div>
+  <div class="body">
+
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen" class="screen active">
+      <div class="login-box">
+        <h2>Enter Admin PIN</h2>
+        <div class="field">
+          <input type="password" id="pinInput" placeholder="PIN" maxlength="10" style="text-align:center;font-size:24px;letter-spacing:8px" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <div id="loginMsg" class="msg msg-err"></div>
+        <button class="btn btn-login" onclick="doLogin()" style="margin-top:12px">Login</button>
+      </div>
+    </div>
+
+    <!-- SETTINGS SCREEN -->
+    <div id="settingsScreen" class="screen">
+
+      <div class="status-bar">
+        <div class="status-chip" id="modeChip">Loading...</div>
+        <div class="status-chip" id="enabledChip">-</div>
+      </div>
+
+      <div id="settingsMsg" class="msg"></div>
+
+      <div class="section">
+        <div class="section-title">DuitNow Gateway</div>
+
+        <div class="toggle-row">
+          <span>Enable DuitNow</span>
+          <label class="toggle">
+            <input type="checkbox" id="duitnowEnabled">
+            <div class="slider"></div>
+          </label>
+        </div>
+
+        <div class="field">
+          <label>Application Code</label>
+          <input type="text" id="duitnowAppCode" placeholder="e.g. MYAPP001">
+          <div class="hint">Provided by J&C</div>
+        </div>
+        <div class="field">
+          <label>Merchant Code</label>
+          <input type="text" id="duitnowMerchantCode" placeholder="e.g. MERCHANT001">
+          <div class="hint">Provided by J&C</div>
+        </div>
+        <div class="field">
+          <label>Secret Key</label>
+          <input type="password" id="duitnowSecretKey" placeholder="Your HMAC secret key">
+          <div class="hint">Never share this key</div>
+        </div>
+        <div class="field">
+          <label>API Endpoint URL</label>
+          <input type="url" id="duitnowApiUrl" placeholder="https://api.jnc.com/v1">
+          <div class="hint">Leave blank to use sandbox mock</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Terminal</div>
+        <div class="field">
+          <label>Terminal Code</label>
+          <input type="text" id="terminalCode" placeholder="POS-01">
+          <div class="hint">Unique identifier for this POS device</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Webhook Callback</div>
+        <div class="callback-url">
+          <div class="label">Give this URL to J&C <button class="copy-btn" onclick="copyCallback()">Copy</button></div>
+          <div id="callbackUrl">-</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Security</div>
+        <div class="field">
+          <label>Admin PIN</label>
+          <input type="password" id="adminPin" placeholder="4-digit PIN" maxlength="10">
+          <div class="hint">PIN to access this settings page</div>
+        </div>
+      </div>
+
+      <button class="btn btn-save" onclick="saveSettings()">Save Settings</button>
+      <button class="btn btn-test" onclick="testConnection()">Test Signature</button>
+      <button class="btn btn-back" onclick="location.href='/'">Back to POS</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = location.origin;
+let authPin = '';
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function showMsg(id, msg, ok) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'msg show ' + (ok ? 'msg-ok' : 'msg-err');
+  setTimeout(() => el.classList.remove('show'), 4000);
+}
+
+async function doLogin() {
+  const pin = document.getElementById('pinInput').value;
+  if (!pin) return;
+  try {
+    const res = await fetch(API + '/api/admin/settings', {
+      headers: { 'x-admin-pin': pin }
+    }).then(r => { if (r.status === 401) throw new Error('Wrong PIN'); return r.json(); });
+    authPin = pin;
+    populateForm(res);
+    show('settingsScreen');
+  } catch (e) {
+    showMsg('loginMsg', e.message, false);
+  }
+}
+
+function populateForm(s) {
+  document.getElementById('duitnowEnabled').checked = s.duitnowEnabled || false;
+  document.getElementById('duitnowAppCode').value = s.duitnowAppCode || '';
+  document.getElementById('duitnowMerchantCode').value = s.duitnowMerchantCode || '';
+  document.getElementById('duitnowSecretKey').value = s.duitnowSecretKey || '';
+  document.getElementById('duitnowApiUrl').value = s.duitnowApiUrl || '';
+  document.getElementById('terminalCode').value = s.terminalCode || 'POS-01';
+  document.getElementById('adminPin').value = s.adminPin || '';
+  document.getElementById('callbackUrl').textContent = API + '/api/payment/duitnow/callback';
+
+  const hasApiUrl = !!s.duitnowApiUrl;
+  const modeChip = document.getElementById('modeChip');
+  modeChip.textContent = hasApiUrl ? 'LIVE' : 'SANDBOX';
+  modeChip.className = 'status-chip ' + (hasApiUrl ? 'chip-live' : 'chip-sandbox');
+
+  const enabledChip = document.getElementById('enabledChip');
+  enabledChip.textContent = s.duitnowEnabled ? 'ENABLED' : 'DISABLED';
+  enabledChip.className = 'status-chip ' + (s.duitnowEnabled ? 'chip-live' : 'chip-off');
+}
+
+async function saveSettings() {
+  const data = {
+    duitnowEnabled: document.getElementById('duitnowEnabled').checked,
+    duitnowAppCode: document.getElementById('duitnowAppCode').value.trim(),
+    duitnowMerchantCode: document.getElementById('duitnowMerchantCode').value.trim(),
+    duitnowSecretKey: document.getElementById('duitnowSecretKey').value.trim(),
+    duitnowApiUrl: document.getElementById('duitnowApiUrl').value.trim(),
+    terminalCode: document.getElementById('terminalCode').value.trim(),
+    adminPin: document.getElementById('adminPin').value.trim()
+  };
+
+  try {
+    const res = await fetch(API + '/api/admin/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
+      body: JSON.stringify(data)
+    }).then(r => { if (!r.ok) throw new Error('Save failed'); return r.json(); });
+    populateForm(res);
+    showMsg('settingsMsg', 'Settings saved!', true);
+  } catch (e) {
+    showMsg('settingsMsg', e.message, false);
+  }
+}
+
+async function testConnection() {
+  const appCode = document.getElementById('duitnowAppCode').value.trim();
+  const merchantCode = document.getElementById('duitnowMerchantCode').value.trim();
+  const secretKey = document.getElementById('duitnowSecretKey').value.trim();
+
+  if (!appCode || !merchantCode || !secretKey) {
+    showMsg('settingsMsg', 'Fill in App Code, Merchant Code and Secret Key first', false);
+    return;
+  }
+
+  try {
+    const res = await fetch(API + '/api/admin/test-signature', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
+      body: JSON.stringify({ appCode, merchantCode, secretKey })
+    }).then(r => r.json());
+
+    if (res.success) {
+      showMsg('settingsMsg', 'Signature generation OK! Sample: ' + res.signature.substring(0, 20) + '...', true);
+    } else {
+      showMsg('settingsMsg', 'Test failed: ' + res.message, false);
+    }
+  } catch (e) {
+    showMsg('settingsMsg', 'Test error: ' + e.message, false);
+  }
+}
+
+function copyCallback() {
+  const url = document.getElementById('callbackUrl').textContent;
+  navigator.clipboard.writeText(url).then(() => {
+    showMsg('settingsMsg', 'Callback URL copied!', true);
+  });
+}
+
+// Auto-focus PIN input
+document.getElementById('pinInput').focus();
+</script>
+</body>
+</html>

@@ -5,20 +5,11 @@ const QRCode = require('qrcode');
 const { WebSocketServer } = require('ws');
 const { getGateway } = require('./index');
 const { generateSignature } = require('./lib/signature');
+const settings = require('./lib/settings');
 
 const PORT = process.env.PORT || 4568;
 const RAILWAY_DOMAIN = process.env.RAILWAY_PUBLIC_DOMAIN;
 const BASE_URL = RAILWAY_DOMAIN ? `https://${RAILWAY_DOMAIN}` : `http://localhost:${PORT}`;
-
-// DuitNow credentials from environment
-const DUITNOW_CONFIG = {
-  applicationCode: process.env.DUITNOW_APP_CODE || 'DEMOAPP',
-  merchantCode: process.env.DUITNOW_MERCHANT_CODE || 'DEMOMERCHANT',
-  secretKey: process.env.DUITNOW_SECRET_KEY || 'DEMOSECRET',
-  apiBaseUrl: process.env.DUITNOW_API_URL || `${BASE_URL}/mock`
-};
-
-const IS_SANDBOX = !process.env.DUITNOW_API_URL; // If no real API URL, use mock
 
 const app = express();
 app.use(express.json());
@@ -42,83 +33,117 @@ function broadcastToPos(data) {
 }
 
 // ================================================================
-// MOCK J&C API (only active in sandbox mode)
+// Admin PIN middleware
 // ================================================================
-if (IS_SANDBOX) {
-  const mockTransactions = {};
-
-  app.post('/mock/Transaction', async (req, res) => {
-    const ref = req.body.ReferenceNo;
-    const amt = parseFloat(req.body.Amount).toFixed(2);
-    mockTransactions[ref] = { status: 'pending', count: 0, amount: amt, terminal: req.body.TerminalCode, paid: false };
-    console.log(`[MOCK J&C] Created: ${ref} - RM${amt}`);
-
-    const qrPayload = JSON.stringify({
-      type: 'DUITNOW', merchant: DUITNOW_CONFIG.merchantCode,
-      ref, amount: amt, currency: 'MYR', server: BASE_URL
-    });
-    const qrDataUrl = await QRCode.toDataURL(qrPayload, { width: 280, margin: 2, color: { dark: '#1a1a2e' } });
-
-    res.json({
-      ResponseCode: '00', ResponseMessage: 'Successful',
-      ExternalRefNo: 'EXT-' + Date.now(), ServiceName: 'DUITNOW',
-      QRCode: qrDataUrl
-    });
-  });
-
-  app.post('/mock/CheckTransaction', (req, res) => {
-    const ref = req.body.ReferenceNo;
-    const txn = mockTransactions[ref];
-    if (!txn) return res.json({ ResponseCode: '05', ResponseMessage: 'Not found' });
-    txn.count++;
-    if (txn.paid) {
-      res.json({ ReferenceNo: ref, Amount: txn.amount, ExternalRefNo: 'EXT-' + ref, ServiceName: 'DUITNOW', ResponseCode: '00', ResponseMessage: 'Successful' });
-    } else {
-      res.json({ ReferenceNo: ref, ResponseCode: '01', ResponseMessage: 'Pending' });
-    }
-  });
-
-  app.post('/mock/Cancellation', (req, res) => {
-    console.log(`[MOCK J&C] Cancelled: ${req.body.TransactionNo}`);
-    res.json({ ResponseCode: '00', ResponseMessage: '' });
-  });
-
-  app.post('/mock/simulate-pay', (req, res) => {
-    const ref = req.body.referenceNo;
-    const txn = mockTransactions[ref];
-    if (!txn) return res.json({ success: false, message: 'Transaction not found' });
-    if (txn.paid) return res.json({ success: false, message: 'Already paid' });
-
-    txn.paid = true;
-    console.log(`[MOCK J&C] Customer paid: ${ref}`);
-
-    const extRef = 'EXT-' + ref + '-PAID';
-    const callbackPayload = {
-      ApplicationCode: DUITNOW_CONFIG.applicationCode,
-      MerchantCode: DUITNOW_CONFIG.merchantCode,
-      TerminalCode: txn.terminal,
-      ReferenceNo: ref, Amount: txn.amount,
-      Date: new Date().toISOString().split('T')[0],
-      Time: new Date().toTimeString().split(' ')[0],
-      ExternalRefNo: extRef, ServiceName: 'DUITNOW', ResponseCode: '00'
-    };
-    const fields = Object.keys(callbackPayload).sort();
-    callbackPayload.Signature = generateSignature(DUITNOW_CONFIG.secretKey, fields.map(k => String(callbackPayload[k])).join(''));
-
-    fetch(`${BASE_URL}/api/payment/duitnow/callback`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(callbackPayload)
-    }).then(r => r.json()).then(r => {
-      console.log(`[MOCK J&C] Callback: ${r.ResponseCode}`);
-    }).catch(e => console.log(`[MOCK J&C] Callback failed: ${e.message}`));
-
-    res.json({ success: true });
-  });
-
-  console.log('[MODE] Sandbox — mock J&C API enabled');
-} else {
-  console.log('[MODE] Live — using real J&C API at', DUITNOW_CONFIG.apiBaseUrl);
+function requirePin(req, res, next) {
+  const pin = req.headers['x-admin-pin'];
+  const current = settings.load();
+  if (!current.adminPin || pin === current.adminPin) return next();
+  res.status(401).json({ error: 'Wrong PIN' });
 }
+
+// ================================================================
+// Admin Settings API
+// ================================================================
+app.get('/api/admin/settings', requirePin, (req, res) => {
+  const s = settings.load();
+  // Mask secret key for display (show last 4 chars only)
+  res.json(s);
+});
+
+app.put('/api/admin/settings', requirePin, (req, res) => {
+  const saved = settings.save(req.body);
+  console.log('[ADMIN] Settings updated');
+  res.json(saved);
+});
+
+app.post('/api/admin/test-signature', requirePin, (req, res) => {
+  try {
+    const { appCode, merchantCode, secretKey } = req.body;
+    const testString = '1.00' + appCode + merchantCode + 'TESTREF001' + 'POS-01' + '2025-12-17 23:24:34';
+    const sig = generateSignature(secretKey, testString);
+    res.json({ success: true, signature: sig, input: testString });
+  } catch (e) {
+    res.json({ success: false, message: e.message });
+  }
+});
+
+// ================================================================
+// MOCK J&C API (sandbox mode)
+// ================================================================
+const mockTransactions = {};
+
+app.post('/mock/Transaction', async (req, res) => {
+  const ref = req.body.ReferenceNo;
+  const amt = parseFloat(req.body.Amount).toFixed(2);
+  mockTransactions[ref] = { status: 'pending', count: 0, amount: amt, terminal: req.body.TerminalCode, paid: false };
+  console.log(`[MOCK J&C] Created: ${ref} - RM${amt}`);
+
+  const s = settings.load();
+  const qrPayload = JSON.stringify({
+    type: 'DUITNOW', merchant: s.duitnowMerchantCode || 'DEMO',
+    ref, amount: amt, currency: 'MYR', server: BASE_URL
+  });
+  const qrDataUrl = await QRCode.toDataURL(qrPayload, { width: 280, margin: 2, color: { dark: '#1a1a2e' } });
+
+  res.json({
+    ResponseCode: '00', ResponseMessage: 'Successful',
+    ExternalRefNo: 'EXT-' + Date.now(), ServiceName: 'DUITNOW',
+    QRCode: qrDataUrl
+  });
+});
+
+app.post('/mock/CheckTransaction', (req, res) => {
+  const ref = req.body.ReferenceNo;
+  const txn = mockTransactions[ref];
+  if (!txn) return res.json({ ResponseCode: '05', ResponseMessage: 'Not found' });
+  txn.count++;
+  if (txn.paid) {
+    res.json({ ReferenceNo: ref, Amount: txn.amount, ExternalRefNo: 'EXT-' + ref, ServiceName: 'DUITNOW', ResponseCode: '00', ResponseMessage: 'Successful' });
+  } else {
+    res.json({ ReferenceNo: ref, ResponseCode: '01', ResponseMessage: 'Pending' });
+  }
+});
+
+app.post('/mock/Cancellation', (req, res) => {
+  console.log(`[MOCK J&C] Cancelled: ${req.body.TransactionNo}`);
+  res.json({ ResponseCode: '00', ResponseMessage: '' });
+});
+
+app.post('/mock/simulate-pay', (req, res) => {
+  const ref = req.body.referenceNo;
+  const txn = mockTransactions[ref];
+  if (!txn) return res.json({ success: false, message: 'Transaction not found' });
+  if (txn.paid) return res.json({ success: false, message: 'Already paid' });
+
+  txn.paid = true;
+  console.log(`[MOCK J&C] Customer paid: ${ref}`);
+
+  const s = settings.load();
+  const appCode = s.duitnowAppCode || 'DEMOAPP';
+  const merchantCode = s.duitnowMerchantCode || 'DEMOMERCHANT';
+  const secretKey = s.duitnowSecretKey || 'DEMOSECRET';
+
+  const extRef = 'EXT-' + ref + '-PAID';
+  const callbackPayload = {
+    ApplicationCode: appCode, MerchantCode: merchantCode,
+    TerminalCode: txn.terminal, ReferenceNo: ref, Amount: txn.amount,
+    Date: new Date().toISOString().split('T')[0],
+    Time: new Date().toTimeString().split(' ')[0],
+    ExternalRefNo: extRef, ServiceName: 'DUITNOW', ResponseCode: '00'
+  };
+  const fields = Object.keys(callbackPayload).sort();
+  callbackPayload.Signature = generateSignature(secretKey, fields.map(k => String(callbackPayload[k])).join(''));
+
+  fetch(`${BASE_URL}/api/payment/duitnow/callback`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(callbackPayload)
+  }).then(r => r.json()).then(r => {
+    console.log(`[MOCK J&C] Callback: ${r.ResponseCode}`);
+  }).catch(e => console.log(`[MOCK J&C] Callback failed: ${e.message}`));
+
+  res.json({ success: true });
+});
 
 // ================================================================
 // Payment API routes
@@ -126,12 +151,16 @@ if (IS_SANDBOX) {
 const createPaymentRouter = require('./routes/payment');
 
 const store = {
-  getSettings: async () => ({
-    duitnowApplicationCode: DUITNOW_CONFIG.applicationCode,
-    duitnowMerchantCode: DUITNOW_CONFIG.merchantCode,
-    duitnowSecretKey: DUITNOW_CONFIG.secretKey,
-    duitnowApiBaseUrl: DUITNOW_CONFIG.apiBaseUrl
-  })
+  getSettings: async () => {
+    const s = settings.load();
+    const isSandbox = !s.duitnowApiUrl;
+    return {
+      duitnowApplicationCode: s.duitnowAppCode || 'DEMOAPP',
+      duitnowMerchantCode: s.duitnowMerchantCode || 'DEMOMERCHANT',
+      duitnowSecretKey: s.duitnowSecretKey || 'DEMOSECRET',
+      duitnowApiBaseUrl: s.duitnowApiUrl || `${BASE_URL}/mock`
+    };
+  }
 };
 
 app.use(createPaymentRouter(store, {
@@ -146,15 +175,21 @@ app.use(createPaymentRouter(store, {
 // ================================================================
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'demo.html')));
 app.get('/pay', (req, res) => res.sendFile(path.join(__dirname, 'demo-customer.html')));
+app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
 
-// Health check for Railway
-app.get('/health', (req, res) => res.json({ status: 'ok', mode: IS_SANDBOX ? 'sandbox' : 'live' }));
+// Health check
+app.get('/health', (req, res) => {
+  const s = settings.load();
+  res.json({ status: 'ok', mode: s.duitnowApiUrl ? 'live' : 'sandbox', enabled: s.duitnowEnabled });
+});
 
 server.listen(PORT, '0.0.0.0', () => {
+  const s = settings.load();
+  const mode = s.duitnowApiUrl ? 'LIVE' : 'SANDBOX';
   console.log(`\n=== DuitNow Payment Gateway ===`);
   console.log(`POS Terminal:  ${BASE_URL}`);
   console.log(`Customer App:  ${BASE_URL}/pay`);
+  console.log(`Admin Panel:   ${BASE_URL}/admin`);
   console.log(`Callback URL:  ${BASE_URL}/api/payment/duitnow/callback`);
-  console.log(`Health Check:  ${BASE_URL}/health`);
-  console.log(`Mode: ${IS_SANDBOX ? 'SANDBOX (mock)' : 'LIVE'}\n`);
+  console.log(`Mode: ${mode} | Default PIN: ${s.adminPin}\n`);
 });
