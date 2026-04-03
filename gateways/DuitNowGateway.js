@@ -35,7 +35,7 @@ class DuitNowGateway extends BaseGateway {
     );
 
     const body = {
-      Amount: parseFloat(amt),
+      Amount: amt,
       ApplicationCode: this.config.applicationCode,
       MerchantCode: this.config.merchantCode,
       ReferenceNo: referenceNo,
