@@ -65,6 +65,13 @@
 
   .customer-link { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px; margin-top: 10px; text-align: center; font-size: 12px; color: #0369a1; }
   .customer-link a { color: #0369a1; font-weight: 600; }
+
+  .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+  .numpad-btn { padding: 16px; border: 2px solid #e0e0e0; border-radius: 10px; background: #fff; font-size: 20px; font-weight: 700; cursor: pointer; text-align: center; transition: all 0.15s; color: #1a1a2e; }
+  .numpad-btn:hover { background: #fef2f2; border-color: #e31837; color: #e31837; }
+  .numpad-btn:active { transform: scale(0.95); }
+  .numpad-btn.zero { grid-column: span 2; }
+  .numpad-btn.del { background: #fef2f2; color: #e31837; border-color: #e31837; }
 </style>
 </head>
 <body>
@@ -95,7 +102,20 @@
       </div>
       <div class="field">
         <label>Amount (RM)</label>
-        <input type="number" id="amount" class="amount-input" value="1.00" min="0.01" step="0.01">
+        <input type="text" id="amount" class="amount-input" value="0.00" readonly style="cursor:default">
+        <div class="numpad">
+          <button class="numpad-btn" onclick="numpadPress('1')">1</button>
+          <button class="numpad-btn" onclick="numpadPress('2')">2</button>
+          <button class="numpad-btn" onclick="numpadPress('3')">3</button>
+          <button class="numpad-btn" onclick="numpadPress('4')">4</button>
+          <button class="numpad-btn" onclick="numpadPress('5')">5</button>
+          <button class="numpad-btn" onclick="numpadPress('6')">6</button>
+          <button class="numpad-btn" onclick="numpadPress('7')">7</button>
+          <button class="numpad-btn" onclick="numpadPress('8')">8</button>
+          <button class="numpad-btn" onclick="numpadPress('9')">9</button>
+          <button class="numpad-btn zero" onclick="numpadPress('0')">0</button>
+          <button class="numpad-btn del" onclick="numpadPress('del')">⌫</button>
+        </div>
       </div>
       <div class="field">
         <label>Reference No</label>
@@ -148,6 +168,19 @@
 
 <script>
 let currentRef = '', currentExtRef = '', paymentMode = 'webhook', resolved = false;
+let numpadRaw = '000'; // stores cents as integer string, e.g. "100" = RM 1.00
+
+function numpadPress(key) {
+  if (key === 'del') {
+    numpadRaw = numpadRaw.length > 1 ? numpadRaw.slice(0, -1) : '0';
+  } else {
+    if (numpadRaw === '0') numpadRaw = key;
+    else numpadRaw += key;
+    if (numpadRaw.length > 8) numpadRaw = numpadRaw.slice(1); // max 999999.99
+  }
+  const cents = parseInt(numpadRaw, 10);
+  document.getElementById('amount').value = (cents / 100).toFixed(2);
+}
 
 // --- WebSocket ---
 let ws;
@@ -213,7 +246,7 @@ function showSuccess(data, method) {
 
 async function startPayment() {
   const gateway = document.getElementById('gateway').value;
-  const amount = parseFloat(document.getElementById('amount').value);
+  const amount = parseFloat(document.getElementById('amount').value) || 0;
   const terminalCode = document.getElementById('terminal').value.trim();
   const referenceNo = document.getElementById('refNo').value.trim() || generateRef();
   document.getElementById('refNo').value = referenceNo;
@@ -318,7 +351,7 @@ async function cancelPayment() {
   reset();
 }
 
-function reset() { show('formScreen'); document.getElementById('refNo').value = ''; currentRef = ''; currentExtRef = ''; resolved = false; }
+function reset() { show('formScreen'); document.getElementById('refNo').value = ''; currentRef = ''; currentExtRef = ''; resolved = false; numpadRaw = '0'; document.getElementById('amount').value = '0.00'; }
 </script>
 </body>
 </html>
