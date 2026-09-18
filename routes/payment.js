@@ -1,9 +1,10 @@
 const express = require('express');
 const { getGateway, listGateways } = require('../index');
+const settings = require('../lib/settings');
 
 /**
  * Create payment router.
- * @param {object} store - Data store with getSettings() method
+ * @param {object} store - Data store with getSettings() method (used as fallback if no tenantId)
  * @param {object} options
  * @param {function} options.onPaymentUpdate - Called when webhook confirms payment: (result) => {}
  * @returns {express.Router}
@@ -16,16 +17,44 @@ function createPaymentRouter(store, options = {}) {
   const processedCallbacks = new Set();
 
   // Helper: build gateway config from settings for a given provider
-  function getGatewayConfig(settings, provider) {
+  function getGatewayConfig(s, provider) {
     if (provider === 'duitnow') {
       return {
-        applicationCode: settings.duitnowApplicationCode,
-        merchantCode: settings.duitnowMerchantCode,
-        secretKey: settings.duitnowSecretKey,
-        apiBaseUrl: settings.duitnowApiBaseUrl
+        applicationCode: s.duitnowApplicationCode || s.duitnowAppCode,
+        merchantCode: s.duitnowMerchantCode,
+        secretKey: s.duitnowSecretKey,
+        apiBaseUrl: s.duitnowApiBaseUrl || s.duitnowApiUrl
+      };
+    }
+    if (provider === 'ampersandpay') {
+      return {
+        merchantId: s.ampersandpayMerchantId,
+        secretKey: s.ampersandpaySecretKey,
+        apiBaseUrl: s.ampersandpayApiUrl
+      };
+    }
+    if (provider === 'ecpi') {
+      return {
+        host: s.ecpiHost,
+        port: s.ecpiPort,
+        timeout: s.ecpiTimeout,
+        checksumMode: s.ecpiChecksumMode
       };
     }
     throw new Error(`No config mapping for provider: ${provider}`);
+  }
+
+  // Load settings based on tenantId (if provided) or fall back to global store
+  async function loadTenantSettings(tenantId) {
+    if (tenantId) {
+      const profile = settings.loadProfile(tenantId);
+      if (!profile) {
+        throw new Error(`Tenant profile not found: ${tenantId}`);
+      }
+      return profile;
+    }
+    // No tenant specified → use global active settings
+    return await store.getSettings();
   }
 
   // List available gateways
@@ -33,16 +62,23 @@ function createPaymentRouter(store, options = {}) {
     res.json({ gateways: listGateways() });
   });
 
+  // List available tenants (profiles)
+  router.get('/api/payment/tenants', (req, res) => {
+    res.json({ tenants: settings.listProfiles() });
+  });
+
   // Create transaction
   router.post('/api/payment/:provider/create', async (req, res) => {
     try {
-      const settings = await store.getSettings();
-      const config = getGatewayConfig(settings, req.params.provider);
+      const { tenantId, amount, referenceNo, terminalCode } = req.body;
+      const s = await loadTenantSettings(tenantId);
+      const config = getGatewayConfig(s, req.params.provider);
       const gateway = getGateway(req.params.provider, config);
 
-      const { amount, referenceNo, terminalCode } = req.body;
-      const result = await gateway.createTransaction({ amount, referenceNo, terminalCode });
-      res.json(result);
+      // Use tenant's terminalCode if not provided in request
+      const termCode = terminalCode || s.terminalCode;
+      const result = await gateway.createTransaction({ amount, referenceNo, terminalCode: termCode });
+      res.json({ ...result, tenantId: tenantId || null });
     } catch (err) {
       res.status(500).json({ success: false, status: 'error', message: err.message });
     }
@@ -51,32 +87,33 @@ function createPaymentRouter(store, options = {}) {
   // Check transaction status
   router.post('/api/payment/:provider/check', async (req, res) => {
     try {
-      const settings = await store.getSettings();
-      const config = getGatewayConfig(settings, req.params.provider);
+      const { tenantId, referenceNo, terminalCode } = req.body;
+      const s = await loadTenantSettings(tenantId);
+      const config = getGatewayConfig(s, req.params.provider);
       const gateway = getGateway(req.params.provider, config);
 
-      const { referenceNo, terminalCode } = req.body;
-      const result = await gateway.checkTransaction({ referenceNo, terminalCode });
-      res.json(result);
+      const termCode = terminalCode || s.terminalCode;
+      const result = await gateway.checkTransaction({ referenceNo, terminalCode: termCode });
+      res.json({ ...result, tenantId: tenantId || null });
     } catch (err) {
       res.status(500).json({ success: false, status: 'error', message: err.message });
     }
   });
 
-  // Poll transaction until final status (fallback when no webhook)
+  // Poll transaction until final status
   router.post('/api/payment/:provider/poll', async (req, res) => {
     try {
-      const settings = await store.getSettings();
-      const config = getGatewayConfig(settings, req.params.provider);
+      const { tenantId, referenceNo, terminalCode, intervalMs, maxAttempts } = req.body;
+      const s = await loadTenantSettings(tenantId);
+      const config = getGatewayConfig(s, req.params.provider);
       const gateway = getGateway(req.params.provider, config);
 
-      const { referenceNo, terminalCode, intervalMs, maxAttempts } = req.body;
-
+      const termCode = terminalCode || s.terminalCode;
       const result = await gateway.pollTransaction(
-        { referenceNo, terminalCode },
+        { referenceNo, terminalCode: termCode },
         { intervalMs, maxAttempts }
       );
-      res.json(result);
+      res.json({ ...result, tenantId: tenantId || null });
     } catch (err) {
       if (!res.headersSent) {
         res.status(500).json({ success: false, status: 'error', message: err.message });
@@ -87,25 +124,46 @@ function createPaymentRouter(store, options = {}) {
   // Cancel transaction
   router.post('/api/payment/:provider/cancel', async (req, res) => {
     try {
-      const settings = await store.getSettings();
-      const config = getGatewayConfig(settings, req.params.provider);
+      const { tenantId, transactionNo, terminalCode } = req.body;
+      const s = await loadTenantSettings(tenantId);
+      const config = getGatewayConfig(s, req.params.provider);
       const gateway = getGateway(req.params.provider, config);
 
-      const { transactionNo, terminalCode } = req.body;
-      const result = await gateway.cancelTransaction({ transactionNo, terminalCode });
-      res.json(result);
+      const termCode = terminalCode || s.terminalCode;
+      const result = await gateway.cancelTransaction({ transactionNo, terminalCode: termCode });
+      res.json({ ...result, tenantId: tenantId || null });
     } catch (err) {
       res.status(500).json({ success: false, status: 'error', message: err.message });
     }
   });
 
   // ============================================================
-  // WEBHOOK: J&C calls this when payment status changes
+  // WEBHOOK: provider calls this when payment status changes
   // ============================================================
   router.post('/api/payment/:provider/callback', async (req, res) => {
     try {
-      const settings = await store.getSettings();
-      const config = getGatewayConfig(settings, req.params.provider);
+      // For webhooks: we don't know the tenant upfront, try to match by MerchantCode
+      const merchantCode = req.body.MerchantCode;
+      const profiles = settings.listProfiles();
+      let tenantId = null;
+      let tenantSettings = null;
+
+      // Find tenant by merchant code
+      for (const p of profiles) {
+        const profile = settings.loadProfile(p.name);
+        if (profile && profile.duitnowMerchantCode === merchantCode) {
+          tenantId = p.name;
+          tenantSettings = profile;
+          break;
+        }
+      }
+
+      // Fallback to global settings if no match
+      if (!tenantSettings) {
+        tenantSettings = await store.getSettings();
+      }
+
+      const config = getGatewayConfig(tenantSettings, req.params.provider);
       const gateway = getGateway(req.params.provider, config);
 
       // 1. Verify signature
@@ -115,7 +173,7 @@ function createPaymentRouter(store, options = {}) {
         return res.json({ ResponseCode: '99', ResponseMessage: verification.reason });
       }
 
-      // 2. Idempotency check — skip if already processed
+      // 2. Idempotency check
       const extRef = req.body.ExternalRefNo;
       if (processedCallbacks.has(extRef)) {
         console.log(`[WEBHOOK] Duplicate ignored: ${extRef}`);
@@ -123,15 +181,15 @@ function createPaymentRouter(store, options = {}) {
       }
       processedCallbacks.add(extRef);
 
-      // 3. Notify POS via callback
-      const result = verification.data;
-      console.log(`[WEBHOOK] ${result.referenceNo} → ${result.status} (${extRef})`);
+      // 3. Notify POS via callback with tenant info
+      const result = { ...verification.data, tenantId };
+      console.log(`[WEBHOOK] ${result.referenceNo} → ${result.status} (tenant: ${tenantId || 'default'})`);
 
       if (onPaymentUpdate) {
         onPaymentUpdate(result);
       }
 
-      // 4. Acknowledge to J&C
+      // 4. Acknowledge to provider
       res.json({ ResponseCode: '00', ResponseMessage: 'Received' });
     } catch (err) {
       console.error('[WEBHOOK] Error:', err.message);

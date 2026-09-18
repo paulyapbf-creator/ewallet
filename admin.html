@@ -3,21 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Settings - DuitNow Gateway</title>
+<title>Admin Settings - Payment Gateway</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 40px 16px; }
-  .container { width: 480px; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); overflow: hidden; }
+  .container { width: 500px; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); overflow: hidden; }
   .header { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; padding: 24px; text-align: center; }
   .header h1 { font-size: 20px; font-weight: 600; }
   .header p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
   .body { padding: 24px; }
 
-  /* Login */
   .login-box { text-align: center; padding: 20px 0; }
   .login-box h2 { font-size: 16px; color: #333; margin-bottom: 16px; }
 
-  /* Form */
   .section { margin-bottom: 20px; }
   .section-title { font-size: 13px; font-weight: 700; color: #e31837; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 2px solid #fef2f2; }
   .field { margin-bottom: 14px; }
@@ -25,8 +23,6 @@
   .field input, .field select { width: 100%; padding: 11px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 14px; outline: none; transition: border 0.2s; }
   .field input:focus, .field select:focus { border-color: #1a1a2e; }
   .field .hint { font-size: 11px; color: #999; margin-top: 4px; }
-  .field input[type="password"] { font-family: monospace; letter-spacing: 2px; }
-  .field input.secret { -webkit-text-security: disc; }
 
   .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #f9f9f9; border-radius: 10px; margin-bottom: 14px; }
   .toggle-row span { font-size: 14px; font-weight: 600; color: #333; }
@@ -41,7 +37,6 @@
   .btn-save { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; }
   .btn-save:hover { opacity: 0.9; }
   .btn-test { background: #f0fdf4; color: #16a34a; border: 2px solid #16a34a; margin-top: 8px; }
-  .btn-test:hover { background: #dcfce7; }
   .btn-login { background: linear-gradient(135deg, #e31837, #c41230); color: #fff; }
   .btn-back { background: #f5f5f5; color: #333; margin-top: 8px; }
 
@@ -60,8 +55,21 @@
   .callback-url .label { font-family: -apple-system, sans-serif; font-weight: 600; font-size: 11px; color: #555; margin-bottom: 4px; }
   .copy-btn { background: none; border: 1px solid #bae6fd; border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; color: #0369a1; margin-left: 6px; }
 
+  /* Launch buttons */
+  .launch-btn { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 16px 10px; border-radius: 10px; text-decoration: none; font-size: 14px; font-weight: 700; transition: all 0.2s; }
+  .launch-btn span { font-size: 11px; font-weight: 400; opacity: 0.8; margin-top: 4px; }
+  .launch-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .launch-wallet { background: linear-gradient(135deg, #e31837, #c41230); color: #fff; }
+  .launch-terminal { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; }
+
   .screen { display: none; }
   .screen.active { display: block; }
+
+
+  .gw-panel { display: none; }
+  .gw-panel.active { display: block; }
+
+  .active-badge { display: inline-block; background: #16a34a; color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 8px; margin-left: 4px; }
 </style>
 </head>
 <body>
@@ -69,11 +77,11 @@
 <div class="container">
   <div class="header">
     <h1>Admin Settings</h1>
-    <p>DuitNow Payment Gateway Configuration</p>
+    <p>Payment Gateway Configuration</p>
   </div>
   <div class="body">
 
-    <!-- LOGIN SCREEN -->
+    <!-- LOGIN -->
     <div id="loginScreen" class="screen active">
       <div class="login-box">
         <h2>Enter Admin PIN</h2>
@@ -85,63 +93,146 @@
       </div>
     </div>
 
-    <!-- SETTINGS SCREEN -->
+    <!-- SETTINGS -->
     <div id="settingsScreen" class="screen">
 
-      <div class="status-bar">
-        <div class="status-chip" id="modeChip">Loading...</div>
-        <div class="status-chip" id="enabledChip">-</div>
+      <!-- Profiles -->
+      <div class="section">
+        <div class="section-title">Profiles</div>
+        <div class="field">
+          <select id="profileSelect" onchange="onProfileSelect(this.value)">
+            <option value="">-- Select Profile --</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="newProfileName" placeholder="New profile name" style="flex:1;padding:8px;border:2px solid #e0e0e0;border-radius:8px;font-size:13px">
+          <button onclick="saveCurrentProfile()" style="padding:8px 16px;border:none;border-radius:8px;background:#1a1a2e;color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Save As</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button id="updateProfileBtn" onclick="updateCurrentProfile()" style="display:none;flex:1;padding:10px;border:2px solid #0369a1;border-radius:8px;background:#f0f9ff;color:#0369a1;font-size:13px;font-weight:600;cursor:pointer">Update: <span id="updateProfileName"></span></button>
+          <button id="deleteProfileBtn" onclick="deleteCurrentProfile()" style="display:none;padding:10px 16px;border:2px solid #e31837;border-radius:8px;background:#fef2f2;color:#e31837;font-size:13px;font-weight:600;cursor:pointer">Delete</button>
+        </div>
       </div>
 
-      <div id="settingsMsg" class="msg"></div>
+      <div class="status-bar">
+        <div class="status-chip" id="modeChip">-</div>
+        <div class="status-chip" id="activeChip">-</div>
+      </div>
 
+      <!-- Active Gateway Selector -->
       <div class="section">
-        <div class="section-title">DuitNow Gateway</div>
-
-        <div class="toggle-row">
-          <span>Enable DuitNow</span>
-          <label class="toggle">
-            <input type="checkbox" id="duitnowEnabled">
-            <div class="slider"></div>
-          </label>
+        <div class="section-title">Active Gateway</div>
+        <div class="field">
+          <select id="activeGateway" onchange="switchGateway(this.value)">
+            <option value="duitnow">J&C Pacific</option>
+            <option value="ampersandpay">AmpersandPay</option>
+            <option value="ecpi">ECPI Terminal</option>
+          </select>
+          <div class="hint">Select which gateway the POS uses for payments</div>
         </div>
+      </div>
 
+      <!-- DuitNow Panel -->
+      <div id="panel-duitnow" class="gw-panel">
+        <div class="toggle-row">
+          <span>Enable J&C</span>
+          <label class="toggle"><input type="checkbox" id="duitnowEnabled"><div class="slider"></div></label>
+        </div>
         <div class="field">
           <label>Application Code</label>
-          <input type="text" id="duitnowAppCode" placeholder="e.g. MYAPP001">
+          <input type="text" id="duitnowAppCode" placeholder="e.g. POS">
           <div class="hint">Provided by J&C</div>
         </div>
         <div class="field">
           <label>Merchant Code</label>
-          <input type="text" id="duitnowMerchantCode" placeholder="e.g. MERCHANT001">
-          <div class="hint">Provided by J&C</div>
+          <input type="text" id="duitnowMerchantCode" placeholder="e.g. RG001">
         </div>
         <div class="field">
           <label>Secret Key</label>
-          <input type="password" id="duitnowSecretKey" placeholder="Your HMAC secret key">
-          <div class="hint">Never share this key</div>
+          <input type="password" id="duitnowSecretKey" placeholder="HMAC secret key">
         </div>
         <div class="field">
           <label>API Endpoint URL</label>
-          <input type="url" id="duitnowApiUrl" placeholder="https://api.jnc.com/v1">
-          <div class="hint">Leave blank to use sandbox mock</div>
+          <input type="url" id="duitnowApiUrl" placeholder="https://walletzpayment...">
+          <div class="hint">Leave blank for sandbox mock</div>
+        </div>
+        <div class="callback-url">
+          <div class="label">Callback URL for J&C <button class="copy-btn" onclick="copyUrl('duitnowCallback')">Copy</button></div>
+          <div id="duitnowCallback">-</div>
         </div>
       </div>
 
+      <!-- AmpersandPay Panel -->
+      <div id="panel-ampersandpay" class="gw-panel">
+        <div class="toggle-row">
+          <span>Enable AmpersandPay</span>
+          <label class="toggle"><input type="checkbox" id="ampersandpayEnabled"><div class="slider"></div></label>
+        </div>
+        <div class="field">
+          <label>Merchant ID</label>
+          <input type="text" id="ampersandpayMerchantId" placeholder="e.g. 12345678">
+          <div class="hint">Provided by AmpersandPay</div>
+        </div>
+        <div class="field">
+          <label>Secret Key</label>
+          <input type="password" id="ampersandpaySecretKey" placeholder="SHA512 secret key">
+        </div>
+        <div class="field">
+          <label>API Endpoint URL</label>
+          <input type="url" id="ampersandpayApiUrl" placeholder="https://stg-ipg.ampersandpay.com">
+          <div class="hint">UAT: https://stg-ipg.ampersandpay.com | PROD: https://ipg.ampersandpay.com</div>
+        </div>
+        <div class="field">
+          <label>Payment Channel</label>
+          <select id="ampersandpayChannel">
+            <option value="EW">E-Wallet (EW)</option>
+            <option value="CC">Credit Card (CC)</option>
+            <option value="OB">Online Banking / FPX (OB)</option>
+          </select>
+        </div>
+        <div class="callback-url">
+          <div class="label">Callback URL for AmpersandPay <button class="copy-btn" onclick="copyUrl('ampersandpayCallback')">Copy</button></div>
+          <div id="ampersandpayCallback">-</div>
+        </div>
+      </div>
+
+      <!-- ECPI Panel -->
+      <div id="panel-ecpi" class="gw-panel">
+        <div class="toggle-row">
+          <span>Enable ECPI Terminal</span>
+          <label class="toggle"><input type="checkbox" id="ecpiEnabled"><div class="slider"></div></label>
+        </div>
+        <div class="field">
+          <label>Terminal IP Address</label>
+          <input type="text" id="ecpiHost" placeholder="e.g. 192.168.1.100">
+          <div class="hint">Sandbox mock: localhost</div>
+        </div>
+        <div class="field">
+          <label>Port</label>
+          <input type="text" id="ecpiPort" placeholder="5000" value="5000">
+          <div class="hint">Default: 5000 | Sandbox mock: 5001</div>
+        </div>
+        <div class="field">
+          <label>Transaction Timeout (ms)</label>
+          <input type="text" id="ecpiTimeout" placeholder="60000" value="60000">
+          <div class="hint">How long to wait for card tap (max 60s)</div>
+        </div>
+        <div class="field">
+          <label>Checksum Mode</label>
+          <select id="ecpiChecksumMode">
+            <option value="bcc">BCC (XOR)</option>
+            <option value="crc16">CRC16</option>
+          </select>
+        </div>
+        <div class="hint" style="margin-top:8px">Save settings, then use Step 2 & 3 below to verify and test.</div>
+      </div>
+
+      <!-- Terminal & Security -->
       <div class="section">
         <div class="section-title">Terminal</div>
         <div class="field">
           <label>Terminal Code</label>
           <input type="text" id="terminalCode" placeholder="POS-01">
-          <div class="hint">Unique identifier for this POS device</div>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Webhook Callback</div>
-        <div class="callback-url">
-          <div class="label">Give this URL to J&C <button class="copy-btn" onclick="copyCallback()">Copy</button></div>
-          <div id="callbackUrl">-</div>
         </div>
       </div>
 
@@ -150,14 +241,38 @@
         <div class="field">
           <label>Admin PIN</label>
           <input type="password" id="adminPin" placeholder="4-digit PIN" maxlength="10">
-          <div class="hint">PIN to access this settings page</div>
         </div>
       </div>
 
       <div id="actionMsg" class="msg"></div>
-      <button class="btn btn-save" onclick="saveSettings()">Save Settings</button>
-      <button class="btn btn-test" id="testBtn" onclick="testConnection()">Test Signature</button>
-      <button class="btn btn-back" onclick="location.href='/'">Back to POS</button>
+
+      <!-- Step 1: Save -->
+      <div class="section">
+        <div class="section-title">Step 1 — Save Settings</div>
+        <button class="btn btn-save" onclick="saveSettings()">Save Settings</button>
+      </div>
+
+      <!-- Step 2: Test Signature / Connection -->
+      <div class="section" id="step2Section">
+        <div class="section-title">Step 2 — Verify Configuration</div>
+        <div id="step2Wallet">
+          <button class="btn btn-test" id="testBtn" onclick="testConnection()">Test Signature</button>
+        </div>
+        <div id="step2Terminal" style="display:none">
+          <button class="btn btn-test" onclick="testECPI()" id="ecpiTestBtn" style="background:#f0f9ff;color:#1a1a2e;border-color:#1a1a2e">Test Terminal Connection</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Launch Test -->
+      <div class="section" id="step3Section">
+        <div class="section-title">Step 3 — Run Test</div>
+        <div id="step3Wallet">
+          <a href="/" target="_blank" class="launch-btn launch-wallet" style="display:flex">QR / Online Payment<span>J&C, AmpersandPay</span></a>
+        </div>
+        <div id="step3Terminal" style="display:none">
+          <a href="/terminal" target="_blank" class="launch-btn launch-terminal" style="display:flex">Card Terminal<span>ECPI Terminal</span></a>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -179,6 +294,12 @@ function showMsg(id, msg, ok) {
   setTimeout(() => el.classList.remove('show'), 6000);
 }
 
+function switchGateway(gw) {
+  document.querySelectorAll('.gw-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + gw).classList.add('active');
+  updateSteps(gw === 'ecpi');
+}
+
 async function doLogin() {
   const pin = document.getElementById('pinInput').value;
   if (!pin) return;
@@ -188,6 +309,9 @@ async function doLogin() {
     }).then(r => { if (r.status === 401) throw new Error('Wrong PIN'); return r.json(); });
     authPin = pin;
     populateForm(res);
+    currentProfile = res.activeProfile || '';
+    loadProfiles();
+    showUpdateBtn();
     show('settingsScreen');
   } catch (e) {
     showMsg('loginMsg', e.message, false);
@@ -195,41 +319,91 @@ async function doLogin() {
 }
 
 function populateForm(s) {
+  // Active gateway
+  document.getElementById('activeGateway').value = s.activeGateway || 'duitnow';
+
+  // DuitNow
   document.getElementById('duitnowEnabled').checked = s.duitnowEnabled || false;
   document.getElementById('duitnowAppCode').value = s.duitnowAppCode || '';
   document.getElementById('duitnowMerchantCode').value = s.duitnowMerchantCode || '';
   document.getElementById('duitnowSecretKey').value = s.duitnowSecretKey || '';
   document.getElementById('duitnowApiUrl').value = s.duitnowApiUrl || '';
+  document.getElementById('duitnowCallback').textContent = API + '/api/payment/duitnow/callback';
+
+  // AmpersandPay
+  document.getElementById('ampersandpayEnabled').checked = s.ampersandpayEnabled || false;
+  document.getElementById('ampersandpayMerchantId').value = s.ampersandpayMerchantId || '';
+  document.getElementById('ampersandpaySecretKey').value = s.ampersandpaySecretKey || '';
+  document.getElementById('ampersandpayApiUrl').value = s.ampersandpayApiUrl || '';
+  document.getElementById('ampersandpayChannel').value = s.ampersandpayChannel || 'EW';
+  document.getElementById('ampersandpayCallback').textContent = API + '/api/payment/ampersandpay/callback';
+
+  // ECPI
+  document.getElementById('ecpiEnabled').checked = s.ecpiEnabled || false;
+  document.getElementById('ecpiHost').value = s.ecpiHost || '';
+  document.getElementById('ecpiPort').value = s.ecpiPort || '5000';
+  document.getElementById('ecpiTimeout').value = s.ecpiTimeout || '60000';
+  document.getElementById('ecpiChecksumMode').value = s.ecpiChecksumMode || 'bcc';
+
+  // General
   document.getElementById('terminalCode').value = s.terminalCode || 'POS-01';
   document.getElementById('adminPin').value = s.adminPin || '';
-  document.getElementById('callbackUrl').textContent = API + '/api/payment/duitnow/callback';
 
-  const hasApiUrl = !!s.duitnowApiUrl;
+  // Status chips
+  const active = s.activeGateway || 'duitnow';
+  const names = { duitnow: 'J&C Pacific', ampersandpay: 'AmpersandPay', ecpi: 'ECPI Terminal' };
+  document.getElementById('activeChip').textContent = 'Active: ' + (names[active] || active);
+  document.getElementById('activeChip').className = 'status-chip chip-live';
+
+  const isTerminal = active === 'ecpi';
+  const hasLiveUrl = active === 'duitnow' ? !!s.duitnowApiUrl : active === 'ampersandpay' ? !!s.ampersandpayApiUrl : !!s.ecpiHost;
   const modeChip = document.getElementById('modeChip');
-  modeChip.textContent = hasApiUrl ? 'LIVE' : 'SANDBOX';
-  modeChip.className = 'status-chip ' + (hasApiUrl ? 'chip-live' : 'chip-sandbox');
+  modeChip.textContent = hasLiveUrl ? 'LIVE' : 'SANDBOX';
+  modeChip.className = 'status-chip ' + (hasLiveUrl ? 'chip-live' : 'chip-sandbox');
 
-  const enabledChip = document.getElementById('enabledChip');
-  enabledChip.textContent = s.duitnowEnabled ? 'ENABLED' : 'DISABLED';
-  enabledChip.className = 'status-chip ' + (s.duitnowEnabled ? 'chip-live' : 'chip-off');
+  updateSteps(isTerminal);
+
+  // Show only the active gateway's config panel
+  document.querySelectorAll('.gw-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + active).classList.add('active');
 }
 
-async function saveSettings() {
-  const data = {
+function updateSteps(isTerminal) {
+  document.getElementById('step2Wallet').style.display = isTerminal ? 'none' : 'block';
+  document.getElementById('step2Terminal').style.display = isTerminal ? 'block' : 'none';
+  document.getElementById('step3Wallet').style.display = isTerminal ? 'none' : 'block';
+  document.getElementById('step3Terminal').style.display = isTerminal ? 'block' : 'none';
+}
+
+function gatherSettings() {
+  return {
+    activeGateway: document.getElementById('activeGateway').value,
     duitnowEnabled: document.getElementById('duitnowEnabled').checked,
     duitnowAppCode: document.getElementById('duitnowAppCode').value.trim(),
     duitnowMerchantCode: document.getElementById('duitnowMerchantCode').value.trim(),
     duitnowSecretKey: document.getElementById('duitnowSecretKey').value.trim(),
     duitnowApiUrl: document.getElementById('duitnowApiUrl').value.trim(),
+    ampersandpayEnabled: document.getElementById('ampersandpayEnabled').checked,
+    ampersandpayMerchantId: document.getElementById('ampersandpayMerchantId').value.trim(),
+    ampersandpaySecretKey: document.getElementById('ampersandpaySecretKey').value.trim(),
+    ampersandpayApiUrl: document.getElementById('ampersandpayApiUrl').value.trim(),
+    ampersandpayChannel: document.getElementById('ampersandpayChannel').value,
+    ecpiEnabled: document.getElementById('ecpiEnabled').checked,
+    ecpiHost: document.getElementById('ecpiHost').value.trim(),
+    ecpiPort: document.getElementById('ecpiPort').value.trim(),
+    ecpiTimeout: document.getElementById('ecpiTimeout').value.trim(),
+    ecpiChecksumMode: document.getElementById('ecpiChecksumMode').value,
     terminalCode: document.getElementById('terminalCode').value.trim(),
     adminPin: document.getElementById('adminPin').value.trim()
   };
+}
 
+async function saveSettings() {
   try {
     const res = await fetch(API + '/api/admin/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
-      body: JSON.stringify(data)
+      body: JSON.stringify(gatherSettings())
     }).then(r => { if (!r.ok) throw new Error('Save failed'); return r.json(); });
     populateForm(res);
     showMsg('actionMsg', 'Settings saved!', true);
@@ -239,16 +413,8 @@ async function saveSettings() {
 }
 
 async function testConnection() {
-  const appCode = document.getElementById('duitnowAppCode').value.trim();
-  const merchantCode = document.getElementById('duitnowMerchantCode').value.trim();
-  const secretKey = document.getElementById('duitnowSecretKey').value.trim();
   const btn = document.getElementById('testBtn');
-
-  if (!appCode || !merchantCode || !secretKey) {
-    showMsg('actionMsg', 'Fill in App Code, Merchant Code and Secret Key first', false);
-    return;
-  }
-
+  const active = document.getElementById('activeGateway').value;
   btn.textContent = 'Testing...';
   btn.disabled = true;
 
@@ -256,29 +422,186 @@ async function testConnection() {
     const res = await fetch(API + '/api/admin/test-signature', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
-      body: JSON.stringify({ appCode, merchantCode, secretKey })
+      body: JSON.stringify({ gateway: active, ...gatherSettings() })
     }).then(r => r.json());
 
     if (res.success) {
-      showMsg('actionMsg', 'Signature OK! Output: ' + res.signature, true);
+      showMsg('actionMsg', res.gateway + ' signature OK! Output: ' + res.signature.substring(0, 30) + '...', true);
     } else {
       showMsg('actionMsg', 'Test failed: ' + res.message, false);
     }
   } catch (e) {
     showMsg('actionMsg', 'Test error: ' + e.message, false);
   }
-  btn.textContent = 'Test Signature';
+  btn.textContent = 'Test Active Gateway';
   btn.disabled = false;
 }
 
-function copyCallback() {
-  const url = document.getElementById('callbackUrl').textContent;
-  navigator.clipboard.writeText(url).then(() => {
-    showMsg('settingsMsg', 'Callback URL copied!', true);
-  });
+async function testECPI() {
+  const btn = document.getElementById('ecpiTestBtn');
+  const host = document.getElementById('ecpiHost').value.trim();
+  const port = document.getElementById('ecpiPort').value.trim();
+
+  if (!host) {
+    showMsg('actionMsg', 'Enter Terminal IP first', false);
+    return;
+  }
+
+  btn.textContent = 'Connecting...';
+  btn.disabled = true;
+
+  try {
+    // Connect
+    const conn = await fetch(API + '/api/terminal/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
+      body: JSON.stringify({ host, port })
+    }).then(r => r.json());
+
+    if (!conn.success) throw new Error(conn.message);
+
+    btn.textContent = 'Sending Enable Reader...';
+
+    // Check status (sends Enable Reader)
+    const status = await fetch(API + '/api/terminal/status').then(r => r.json());
+
+    // Disconnect
+    await fetch(API + '/api/terminal/disconnect', { method: 'POST' });
+
+    showMsg('actionMsg', 'ECPI terminal connected! Host: ' + host + ':' + port, true);
+  } catch (e) {
+    showMsg('actionMsg', 'ECPI connection failed: ' + e.message, false);
+  }
+
+  btn.textContent = 'Test Connection';
+  btn.disabled = false;
 }
 
-// Auto-focus PIN input
+function copyUrl(id) {
+  const url = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(url).then(() => showMsg('actionMsg', 'URL copied!', true));
+}
+
+// --- Profiles ---
+let currentProfile = '';
+
+async function loadProfiles() {
+  try {
+    const res = await fetch(API + '/api/admin/profiles', {
+      headers: { 'x-admin-pin': authPin }
+    }).then(r => r.json());
+    renderProfiles(res.profiles || []);
+  } catch (e) {}
+}
+
+function renderProfiles(profiles) {
+  const sel = document.getElementById('profileSelect');
+  const gwNames = { duitnow: 'J&C', ampersandpay: 'Ampersand', ecpi: 'ECPI' };
+  sel.innerHTML = '<option value="">-- Select Profile --</option>' +
+    profiles.map(p => {
+      const gw = gwNames[p.activeGateway] || p.activeGateway;
+      const mode = (p.hasJC || p.hasAmpersand) ? 'Live' : 'Sandbox';
+      return '<option value="' + p.name.replace(/"/g, '&quot;') + '"' + (p.name === currentProfile ? ' selected' : '') + '>' + p.name.replace(/&/g, '&amp;') + ' (' + gw + ' / ' + mode + ')</option>';
+    }).join('');
+  showUpdateBtn();
+}
+
+async function saveCurrentProfile() {
+  let name = document.getElementById('newProfileName').value.trim();
+  if (!name) {
+    showMsg('actionMsg', 'Enter a profile name', false);
+    return;
+  }
+  try {
+    const data = gatherSettings();
+    const res = await fetch(API + '/api/admin/profiles/' + encodeURIComponent(name), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
+      body: JSON.stringify(data)
+    }).then(r => r.json());
+    currentProfile = name;
+    renderProfiles(res.profiles || []);
+    showUpdateBtn();
+    document.getElementById('newProfileName').value = '';
+    showMsg('actionMsg', 'Profile "' + name + '" saved!', true);
+  } catch (e) {
+    showMsg('actionMsg', 'Save profile failed: ' + e.message, false);
+  }
+}
+
+function onProfileSelect(name) {
+  if (name) loadProfileByName(name);
+}
+
+async function loadProfileByName(name) {
+  try {
+    const res = await fetch(API + '/api/admin/profiles/' + encodeURIComponent(name) + '/load', {
+      headers: { 'x-admin-pin': authPin }
+    }).then(r => { if (!r.ok) throw new Error('Profile not found'); return r.json(); });
+    currentProfile = name;
+    populateForm(res);
+    loadProfiles();
+    showUpdateBtn();
+    showMsg('actionMsg', 'Profile "' + name + '" loaded!', true);
+  } catch (e) {
+    showMsg('actionMsg', e.message, false);
+  }
+}
+
+function showUpdateBtn() {
+  const btn = document.getElementById('updateProfileBtn');
+  const del = document.getElementById('deleteProfileBtn');
+  if (currentProfile) {
+    btn.style.display = 'block';
+    del.style.display = 'block';
+    document.getElementById('updateProfileName').textContent = currentProfile;
+  } else {
+    btn.style.display = 'none';
+    del.style.display = 'none';
+  }
+}
+
+async function updateCurrentProfile() {
+  if (!currentProfile) return;
+  try {
+    const data = gatherSettings();
+    const res = await fetch(API + '/api/admin/profiles/' + encodeURIComponent(currentProfile), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
+      body: JSON.stringify(data)
+    }).then(r => r.json());
+    // Also save to active settings
+    await fetch(API + '/api/admin/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
+      body: JSON.stringify(data)
+    });
+    renderProfiles(res.profiles || []);
+    showMsg('actionMsg', 'Profile "' + currentProfile + '" updated!', true);
+  } catch (e) {
+    showMsg('actionMsg', 'Update failed: ' + e.message, false);
+  }
+}
+
+function deleteCurrentProfile() {
+  if (currentProfile) deleteProfileByName(currentProfile);
+}
+
+async function deleteProfileByName(name) {
+  if (!confirm('Delete profile "' + name + '"?')) return;
+  try {
+    const res = await fetch(API + '/api/admin/profiles/' + encodeURIComponent(name), {
+      method: 'DELETE',
+      headers: { 'x-admin-pin': authPin }
+    }).then(r => r.json());
+    if (currentProfile === name) currentProfile = '';
+    renderProfiles(res.profiles || []);
+    showMsg('actionMsg', 'Profile "' + name + '" deleted', true);
+  } catch (e) {
+    showMsg('actionMsg', e.message, false);
+  }
+}
+
 document.getElementById('pinInput').focus();
 </script>
 </body>

@@ -57,12 +57,46 @@ app.put('/api/admin/settings', requirePin, (req, res) => {
   res.json(saved);
 });
 
+// --- Profiles API ---
+app.get('/api/admin/profiles', requirePin, (req, res) => {
+  res.json({ profiles: settings.listProfiles() });
+});
+
+app.post('/api/admin/profiles/:name', requirePin, (req, res) => {
+  const current = settings.load();
+  settings.saveProfile(req.params.name, { ...current, ...req.body });
+  console.log(`[ADMIN] Profile saved: ${req.params.name}`);
+  res.json({ success: true, profiles: settings.listProfiles() });
+});
+
+app.get('/api/admin/profiles/:name/load', requirePin, (req, res) => {
+  const profile = settings.loadProfile(req.params.name);
+  if (!profile) return res.status(404).json({ error: 'Profile not found' });
+  const saved = settings.save(profile);
+  console.log(`[ADMIN] Profile loaded: ${req.params.name}`);
+  res.json(saved);
+});
+
+app.delete('/api/admin/profiles/:name', requirePin, (req, res) => {
+  settings.deleteProfile(req.params.name);
+  console.log(`[ADMIN] Profile deleted: ${req.params.name}`);
+  res.json({ success: true, profiles: settings.listProfiles() });
+});
+
 app.post('/api/admin/test-signature', requirePin, (req, res) => {
   try {
-    const { appCode, merchantCode, secretKey } = req.body;
-    const testString = '1.00' + appCode + merchantCode + 'TESTREF001' + 'POS-01' + '2025-12-17 23:24:34';
-    const sig = generateSignature(secretKey, testString);
-    res.json({ success: true, signature: sig, input: testString });
+    const { gateway } = req.body;
+    if (gateway === 'ampersandpay') {
+      const crypto = require('crypto');
+      const testBody = JSON.stringify({ merchantId: req.body.ampersandpayMerchantId, txType: 'SALE', txAmount: '1.00', orderId: 'TEST001' });
+      const payload = testBody + (req.body.ampersandpaySecretKey || '');
+      const sig = crypto.createHash('sha512').update(payload, 'utf8').digest('hex');
+      res.json({ success: true, gateway: 'AmpersandPay', signature: sig });
+    } else {
+      const testString = '1.00' + (req.body.duitnowAppCode || '') + (req.body.duitnowMerchantCode || '') + 'TESTREF001' + 'POS-01' + '2025-12-17 23:24:34';
+      const sig = generateSignature(req.body.duitnowSecretKey || '', testString);
+      res.json({ success: true, gateway: 'DuitNow', signature: sig });
+    }
   } catch (e) {
     res.json({ success: false, message: e.message });
   }
@@ -146,6 +180,79 @@ app.post('/mock/simulate-pay', (req, res) => {
 });
 
 // ================================================================
+// MOCK AmpersandPay API (sandbox mode)
+// ================================================================
+const mockAmpersandTxns = {};
+
+app.post('/mock/ampersandpay/tx/request', async (req, res) => {
+  const ref = req.body.orderId;
+  const amt = parseFloat(req.body.txAmount).toFixed(2);
+  const txId = 'AP-' + Date.now();
+  mockAmpersandTxns[txId] = { status: 'PENDING', amount: amt, orderId: ref, paid: false };
+  console.log(`[MOCK AmpersandPay] Created: ${ref} txId=${txId} RM${amt}`);
+
+  const qrPayload = JSON.stringify({
+    type: 'AMPERSANDPAY', txId, ref, amount: amt, currency: 'MYR', server: BASE_URL
+  });
+  const qrDataUrl = await QRCode.toDataURL(qrPayload, { width: 280, margin: 2, color: { dark: '#1a1a2e' } });
+
+  res.json({
+    ret: 0,
+    msg: 'Success',
+    txId,
+    qrCode: qrDataUrl
+  });
+});
+
+app.post('/mock/ampersandpay/tx/query', (req, res) => {
+  const txId = req.body.txId;
+  const txn = mockAmpersandTxns[txId];
+  if (!txn) return res.json({ ret: 1, msg: 'Not found', txStatus: 'FAILED' });
+
+  res.json({
+    ret: 0,
+    msg: 'Success',
+    txId,
+    orderId: txn.orderId,
+    txAmount: txn.amount,
+    txStatus: txn.paid ? 'SUCCESS' : 'PENDING',
+    txChannel: 'EW'
+  });
+});
+
+app.post('/mock/ampersandpay/tx/void', (req, res) => {
+  const txId = req.body.txId;
+  console.log(`[MOCK AmpersandPay] Voided: ${txId}`);
+  if (mockAmpersandTxns[txId]) mockAmpersandTxns[txId].status = 'FAILED';
+  res.json({ ret: 0, msg: 'Voided', txId, txStatus: 'FAILED' });
+});
+
+app.post('/mock/ampersandpay/simulate-pay', (req, res) => {
+  const txId = req.body.txId;
+  const txn = mockAmpersandTxns[txId];
+  if (!txn) return res.json({ success: false, message: 'Transaction not found' });
+  if (txn.paid) return res.json({ success: false, message: 'Already paid' });
+
+  txn.paid = true;
+  console.log(`[MOCK AmpersandPay] Customer paid: ${txn.orderId} txId=${txId}`);
+
+  // Send callback
+  const callbackPayload = {
+    txId, orderId: txn.orderId, txAmount: txn.amount,
+    txCurrency: 'MYR', txStatus: 'SUCCESS', txChannel: 'EW'
+  };
+
+  fetch(`${BASE_URL}/api/payment/ampersandpay/callback`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(callbackPayload)
+  }).then(r => r.json()).then(r => {
+    console.log(`[MOCK AmpersandPay] Callback sent`);
+  }).catch(e => console.log(`[MOCK AmpersandPay] Callback failed: ${e.message}`));
+
+  res.json({ success: true });
+});
+
+// ================================================================
 // Payment API routes
 // ================================================================
 const createPaymentRouter = require('./routes/payment');
@@ -153,12 +260,14 @@ const createPaymentRouter = require('./routes/payment');
 const store = {
   getSettings: async () => {
     const s = settings.load();
-    const isSandbox = !s.duitnowApiUrl;
     return {
       duitnowApplicationCode: s.duitnowAppCode || 'DEMOAPP',
       duitnowMerchantCode: s.duitnowMerchantCode || 'DEMOMERCHANT',
       duitnowSecretKey: s.duitnowSecretKey || 'DEMOSECRET',
-      duitnowApiBaseUrl: s.duitnowApiUrl || `${BASE_URL}/mock`
+      duitnowApiBaseUrl: s.duitnowApiUrl || `${BASE_URL}/mock`,
+      ampersandpayMerchantId: s.ampersandpayMerchantId || '',
+      ampersandpaySecretKey: s.ampersandpaySecretKey || '',
+      ampersandpayApiUrl: s.ampersandpayApiUrl || `${BASE_URL}/mock/ampersandpay`
     };
   }
 };
@@ -169,6 +278,18 @@ app.use(createPaymentRouter(store, {
     broadcastToPos({ type: 'payment_update', ...result });
   }
 }));
+
+// --- Render QR image from EMV string (for J&C real QR data) ---
+app.get('/api/qr', async (req, res) => {
+  try {
+    const data = req.query.data;
+    if (!data) return res.status(400).send('Missing data');
+    const buf = await QRCode.toBuffer(data, { width: 320, margin: 2, color: { dark: '#1a1a2e' } });
+    res.type('png').send(buf);
+  } catch (e) {
+    res.status(500).send('QR render failed: ' + e.message);
+  }
+});
 
 // ================================================================
 // Serve UI

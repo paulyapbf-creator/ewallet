@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Card Terminal - ECPI Test</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; padding: 30px 16px; display: flex; justify-content: center; }
+  .page { width: 900px; display: flex; gap: 16px; align-items: flex-start; }
+  .panel { background: #fff; border-radius: 14px; box-shadow: 0 2px 16px rgba(0,0,0,0.08); overflow: hidden; }
+
+  /* Left panel: controls */
+  .left { width: 380px; }
+  .right { flex: 1; }
+  .panel-header { padding: 18px 20px; color: #fff; font-weight: 600; font-size: 15px; }
+  .left .panel-header { background: linear-gradient(135deg, #1a1a2e, #16213e); }
+  .right .panel-header { background: linear-gradient(135deg, #0f172a, #1e293b); }
+  .panel-body { padding: 20px; }
+
+  .section { margin-bottom: 18px; }
+  .section-title { font-size: 11px; font-weight: 700; color: #e31837; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; }
+  .field input, .field select { width: 100%; padding: 9px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 14px; outline: none; }
+  .field input:focus, .field select:focus { border-color: #1a1a2e; }
+  .row { display: flex; gap: 8px; }
+  .row .field { flex: 1; }
+
+  .btn { width: 100%; padding: 11px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 6px; }
+  .btn-connect { background: #16a34a; color: #fff; }
+  .btn-connect:hover { background: #15803d; }
+  .btn-disconnect { background: #f5f5f5; color: #e31837; border: 2px solid #e31837; }
+  .btn-pay { background: linear-gradient(135deg, #e31837, #c41230); color: #fff; font-size: 16px; padding: 14px; }
+  .btn-pay:hover { opacity: 0.9; }
+  .btn-pay:disabled { background: #ccc; cursor: not-allowed; }
+  .btn-void { background: #fef3c7; color: #d97706; border: 2px solid #d97706; }
+  .btn-small { width: auto; padding: 6px 14px; font-size: 12px; display: inline-block; margin: 2px; }
+  .btn-scenario { background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; }
+  .btn-scenario.active { background: #0369a1; color: #fff; }
+  .btn-link { background: none; border: none; color: #0369a1; text-decoration: underline; font-size: 13px; cursor: pointer; padding: 4px; width: auto; }
+
+  /* Status */
+  .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+  .dot-off { background: #ccc; }
+  .dot-on { background: #16a34a; }
+  .dot-busy { background: #f59e0b; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .status-bar { display: flex; align-items: center; padding: 10px 14px; background: #f9f9f9; border-radius: 8px; font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+
+  /* Payment screen */
+  .amount-input { font-size: 32px !important; text-align: center; font-weight: 700; }
+  .pay-status { text-align: center; padding: 20px 0; }
+  .pay-status .icon { font-size: 48px; margin-bottom: 10px; }
+  .pay-status .title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .pay-status .sub { font-size: 13px; color: #666; }
+  .spinner { width: 48px; height: 48px; border: 4px solid #e0e0e0; border-top-color: #e31837; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .receipt { background: #f9f9f9; border-radius: 8px; padding: 12px; margin: 12px 0; }
+  .receipt-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+  .receipt-row span:first-child { color: #888; }
+  .receipt-row span:last-child { font-weight: 600; }
+  .divider { border-top: 1px dashed #ddd; margin: 6px 0; }
+
+  /* Log */
+  .log { background: #0f172a; border-radius: 8px; padding: 10px; max-height: 500px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 11px; line-height: 1.6; }
+  .log .entry { color: #8892b0; }
+  .log .tx { color: #64ffda; }
+  .log .rx { color: #ffd93d; }
+  .log .err { color: #ff6b6b; }
+  .log .info { color: #c084fc; }
+
+  .msg { padding: 8px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 10px; display: none; }
+  .msg.show { display: block; }
+  .msg-ok { background: #dcfce7; color: #16a34a; }
+  .msg-err { background: #fef2f2; color: #e31837; }
+
+  .screen { display: none; }
+  .screen.active { display: block; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <!-- LEFT PANEL: Connection & Payment -->
+  <div class="panel left">
+    <div class="panel-header">Card Terminal (ECPI)</div>
+    <div class="panel-body">
+
+      <!-- Connection -->
+      <div class="section">
+        <div class="section-title">Connection</div>
+        <div class="status-bar">
+          <span class="status-dot dot-off" id="statusDot"></span>
+          <span id="statusText">Disconnected</span>
+        </div>
+        <div class="row">
+          <div class="field"><label>Host</label><input type="text" id="host" value="localhost"></div>
+          <div class="field" style="max-width:100px"><label>Port</label><input type="text" id="port" value="5001"></div>
+        </div>
+        <button class="btn btn-connect" id="connectBtn" onclick="toggleConnect()">Connect</button>
+      </div>
+
+      <!-- Mock Scenario -->
+      <div class="section">
+        <div class="section-title">Mock Scenario</div>
+        <button class="btn btn-small btn-scenario active" onclick="setScenario('success',this)">Success</button>
+        <button class="btn btn-small btn-scenario" onclick="setScenario('declined',this)">Declined</button>
+        <button class="btn btn-small btn-scenario" onclick="setScenario('timeout',this)">Timeout</button>
+      </div>
+
+      <div id="msgBox" class="msg"></div>
+
+      <!-- Payment Form -->
+      <div id="payForm" class="screen active">
+        <div class="section">
+          <div class="section-title">Payment</div>
+          <div class="field">
+            <label>Amount (RM)</label>
+            <input type="number" id="amount" class="amount-input" value="1.00" min="0.01" step="0.01">
+          </div>
+          <button class="btn btn-pay" id="payBtn" onclick="startPayment()" disabled>Pay by Card</button>
+        </div>
+      </div>
+
+      <!-- Processing Screen -->
+      <div id="payProcessing" class="screen">
+        <div class="pay-status">
+          <div class="spinner"></div>
+          <div class="title">Processing Payment</div>
+          <div class="sub" id="processingMsg">Present card on terminal...</div>
+        </div>
+      </div>
+
+      <!-- Result Screen -->
+      <div id="payResult" class="screen">
+        <div class="pay-status">
+          <div class="icon" id="resultIcon"></div>
+          <div class="title" id="resultTitle"></div>
+          <div class="sub" id="resultMsg"></div>
+        </div>
+        <div class="receipt" id="receipt" style="display:none"></div>
+        <button class="btn btn-pay" onclick="resetPayment()" style="background:#1a1a2e">New Payment</button>
+        <button class="btn btn-void" id="voidBtn" onclick="voidPayment()" style="display:none">Void This Transaction</button>
+      </div>
+
+      <div style="margin-top:12px;text-align:center">
+        <a href="/" class="btn-link">POS Terminal</a> | <a href="/admin" class="btn-link">Admin Settings</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL: Log -->
+  <div class="panel right">
+    <div class="panel-header">
+      Communication Log
+      <button onclick="clearLog()" style="float:right;background:rgba(255,255,255,0.2);border:none;color:#fff;padding:2px 10px;border-radius:4px;font-size:11px;cursor:pointer">Clear</button>
+      <button onclick="refreshLog()" style="float:right;background:rgba(255,255,255,0.2);border:none;color:#fff;padding:2px 10px;border-radius:4px;font-size:11px;cursor:pointer;margin-right:6px">Refresh</button>
+    </div>
+    <div class="panel-body">
+      <div class="log" id="logBox">
+        <div class="entry info">Ready. Connect to a terminal to start.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = location.origin;
+let connected = false;
+let lastApprovalCode = '';
+let pollTimer = null;
+
+function showScreen(id) {
+  ['payForm','payProcessing','payResult'].forEach(s =>
+    document.getElementById(s).className = 'screen' + (s === id ? ' active' : '')
+  );
+}
+
+function showMsg(msg, ok) {
+  const el = document.getElementById('msgBox');
+  el.textContent = msg;
+  el.className = 'msg show ' + (ok ? 'msg-ok' : 'msg-err');
+  setTimeout(() => el.classList.remove('show'), 5000);
+}
+
+function setStatus(status) {
+  const dot = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  const btn = document.getElementById('connectBtn');
+  const payBtn = document.getElementById('payBtn');
+
+  if (status === 'connected') {
+    dot.className = 'status-dot dot-on';
+    text.textContent = 'Connected';
+    btn.textContent = 'Disconnect';
+    btn.className = 'btn btn-disconnect';
+    payBtn.disabled = false;
+    connected = true;
+  } else if (status === 'busy') {
+    dot.className = 'status-dot dot-busy';
+    text.textContent = 'Processing...';
+  } else {
+    dot.className = 'status-dot dot-off';
+    text.textContent = 'Disconnected';
+    btn.textContent = 'Connect';
+    btn.className = 'btn btn-connect';
+    payBtn.disabled = true;
+    connected = false;
+  }
+}
+
+function addLog(msg, type = 'entry') {
+  const el = document.getElementById('logBox');
+  const ts = new Date().toLocaleTimeString();
+  el.innerHTML += '<div class="' + type + '">[' + ts + '] ' + msg + '</div>';
+  el.scrollTop = el.scrollHeight;
+}
+
+async function toggleConnect() {
+  if (connected) {
+    await fetch(API + '/api/terminal/disconnect', { method: 'POST' });
+    setStatus('disconnected');
+    addLog('Disconnected', 'info');
+    return;
+  }
+
+  const host = document.getElementById('host').value.trim();
+  const port = document.getElementById('port').value.trim();
+  addLog('Connecting to ' + host + ':' + port + '...', 'info');
+
+  try {
+    const res = await fetch(API + '/api/terminal/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-pin': '8888' },
+      body: JSON.stringify({ host, port })
+    }).then(r => r.json());
+
+    if (res.success) {
+      setStatus('connected');
+      addLog('Connected!', 'tx');
+      showMsg('Connected to terminal', true);
+    } else {
+      throw new Error(res.message);
+    }
+  } catch (e) {
+    addLog('Connection failed: ' + e.message, 'err');
+    showMsg(e.message, false);
+  }
+}
+
+async function startPayment() {
+  const amount = parseFloat(document.getElementById('amount').value);
+  if (!amount || amount <= 0) return showMsg('Enter valid amount', false);
+
+  showScreen('payProcessing');
+  setStatus('busy');
+  document.getElementById('processingMsg').textContent = 'Connecting to terminal...';
+  addLog('Starting payment: RM ' + amount.toFixed(2), 'info');
+
+  // Poll logs while processing
+  pollTimer = setInterval(refreshLog, 1000);
+
+  try {
+    document.getElementById('processingMsg').textContent = 'Present card on terminal...';
+    const res = await fetch(API + '/api/terminal/pay', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount })
+    }).then(r => r.json());
+
+    clearInterval(pollTimer);
+    await refreshLog();
+    setStatus('connected');
+
+    if (res.success) {
+      lastApprovalCode = res.approvalCode || '';
+      document.getElementById('resultIcon').textContent = '\u2713';
+      document.getElementById('resultIcon').style.color = '#16a34a';
+      document.getElementById('resultTitle').textContent = 'Payment Approved';
+      document.getElementById('resultTitle').style.color = '#16a34a';
+      document.getElementById('resultMsg').textContent = res.message || 'APPROVED';
+
+      const rcpt = document.getElementById('receipt');
+      rcpt.style.display = 'block';
+      rcpt.innerHTML =
+        '<div class="receipt-row"><span>Status</span><span style="color:#16a34a">APPROVED</span></div><div class="divider"></div>' +
+        '<div class="receipt-row"><span>Amount</span><span>RM ' + parseFloat(res.amount).toFixed(2) + '</span></div>' +
+        '<div class="receipt-row"><span>Card</span><span>' + (res.cardNumber || '-') + '</span></div>' +
+        '<div class="receipt-row"><span>Card Type</span><span>' + (res.cardType || '-') + '</span></div>' +
+        '<div class="receipt-row"><span>Approval Code</span><span>' + (res.approvalCode || '-') + '</span></div>' +
+        '<div class="receipt-row"><span>RRN</span><span>' + (res.rrn || '-') + '</span></div>' +
+        '<div class="receipt-row"><span>STAN</span><span>' + (res.stan || '-') + '</span></div>' +
+        '<div class="divider"></div>' +
+        '<div class="receipt-row"><span>Time</span><span>' + new Date().toLocaleString() + '</span></div>';
+
+      document.getElementById('voidBtn').style.display = lastApprovalCode ? 'block' : 'none';
+      addLog('APPROVED: ' + (res.approvalCode || ''), 'tx');
+    } else {
+      document.getElementById('resultIcon').textContent = '\u2717';
+      document.getElementById('resultIcon').style.color = '#e31837';
+      document.getElementById('resultTitle').textContent = res.status === 'declined' ? 'Card Declined' : 'Payment Failed';
+      document.getElementById('resultTitle').style.color = '#e31837';
+      document.getElementById('resultMsg').textContent = res.message || res.status || 'Error';
+      document.getElementById('receipt').style.display = 'none';
+      document.getElementById('voidBtn').style.display = 'none';
+      addLog('FAILED: ' + (res.message || res.status), 'err');
+    }
+
+    showScreen('payResult');
+  } catch (e) {
+    clearInterval(pollTimer);
+    setStatus('connected');
+    addLog('Error: ' + e.message, 'err');
+    showMsg(e.message, false);
+    showScreen('payForm');
+  }
+}
+
+async function voidPayment() {
+  if (!lastApprovalCode) return;
+  addLog('Voiding transaction: ' + lastApprovalCode, 'info');
+  try {
+    const res = await fetch(API + '/api/terminal/void', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approvalCode: lastApprovalCode })
+    }).then(r => r.json());
+    await refreshLog();
+    if (res.success) {
+      showMsg('Transaction voided', true);
+      addLog('Void successful', 'tx');
+    } else {
+      showMsg('Void failed: ' + res.message, false);
+      addLog('Void failed: ' + res.message, 'err');
+    }
+  } catch (e) {
+    showMsg(e.message, false);
+  }
+}
+
+function resetPayment() {
+  lastApprovalCode = '';
+  showScreen('payForm');
+}
+
+async function setScenario(scenario, btn) {
+  document.querySelectorAll('.btn-scenario').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  await fetch(API + '/api/terminal/scenario', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scenario })
+  });
+  addLog('Mock scenario: ' + scenario, 'info');
+}
+
+async function refreshLog() {
+  try {
+    const res = await fetch(API + '/api/terminal/logs').then(r => r.json());
+    const el = document.getElementById('logBox');
+    if (res.logs && res.logs.length) {
+      el.innerHTML = res.logs.map(l => {
+        const cls = l.includes('>>') ? 'tx' : l.includes('<<') ? 'rx' : l.includes('!!') ? 'err' : 'entry';
+        return '<div class="' + cls + '">' + l + '</div>';
+      }).join('');
+      el.scrollTop = el.scrollHeight;
+    }
+  } catch (e) {}
+}
+
+function clearLog() {
+  document.getElementById('logBox').innerHTML = '<div class="entry info">Log cleared.</div>';
+}
+
+// Load current mock scenario
+fetch(API + '/api/terminal/scenario').then(r => r.json()).then(s => {
+  if (s.scenario) {
+    document.querySelectorAll('.btn-scenario').forEach(b => {
+      b.classList.toggle('active', b.textContent.toLowerCase() === s.scenario);
+    });
+  }
+}).catch(() => {});
+
+// Load settings for host/port
+fetch(API + '/api/admin/settings', { headers: { 'x-admin-pin': '8888' }})
+  .then(r => r.json())
+  .then(s => {
+    if (s.ecpiHost) document.getElementById('host').value = s.ecpiHost;
+    if (s.ecpiPort) document.getElementById('port').value = s.ecpiPort;
+  }).catch(() => {});
+</script>
+</body>
+</html>

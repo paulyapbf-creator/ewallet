@@ -1,13 +1,17 @@
 const DuitNowGateway = require('./gateways/DuitNowGateway');
+const AmpersandPayGateway = require('./gateways/AmpersandPayGateway');
+const ECPIGateway = require('./gateways/ECPIGateway');
 
 // Registry of available gateways
 const GATEWAYS = {
-  duitnow: DuitNowGateway
+  duitnow: DuitNowGateway,
+  ampersandpay: AmpersandPayGateway,
+  ecpi: ECPIGateway
 };
 
 /**
  * Get a payment gateway instance.
- * @param {string} provider - Gateway name (e.g., 'duitnow')
+ * @param {string} provider - Gateway name (e.g., 'duitnow', 'ampersandpay')
  * @param {object} config - Provider-specific credentials and settings
  * @returns {BaseGateway} Gateway instance
  */

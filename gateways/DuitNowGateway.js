@@ -1,5 +1,5 @@
 const BaseGateway = require('../lib/BaseGateway');
-const { generateSignature } = require('../lib/signature');
+const { generateSignatureHex } = require('../lib/signature');
 
 const RESPONSE_CODES = {
   '00': 'success',
@@ -28,14 +28,16 @@ class DuitNowGateway extends BaseGateway {
     const amt = parseFloat(amount).toFixed(2);
 
     // Signature order: Amount + ApplicationCode + MerchantCode + ReferenceNo + TerminalCode + Timestamp
-    const signature = generateSignature(
+    // Signature uses formatted amount "1.00" (with trailing zero)
+    const signature = generateSignatureHex(
       this.config.secretKey,
       amt, this.config.applicationCode, this.config.merchantCode,
       referenceNo, terminalCode, timestamp
     );
 
+    // Body: Amount as number (1.0), not string
     const body = {
-      Amount: amt,
+      Amount: parseFloat(amt),
       ApplicationCode: this.config.applicationCode,
       MerchantCode: this.config.merchantCode,
       ReferenceNo: referenceNo,
@@ -53,7 +55,7 @@ class DuitNowGateway extends BaseGateway {
     const timestamp = this.getTimestamp();
 
     // Signature order: ApplicationCode + MerchantCode + ReferenceNo + TerminalCode + Timestamp
-    const signature = generateSignature(
+    const signature = generateSignatureHex(
       this.config.secretKey,
       this.config.applicationCode, this.config.merchantCode,
       referenceNo, terminalCode, timestamp
@@ -77,7 +79,7 @@ class DuitNowGateway extends BaseGateway {
     const timestamp = this.getTimestamp();
 
     // Signature order: ApplicationCode + MerchantCode + TerminalCode + Timestamp + TransactionNo
-    const signature = generateSignature(
+    const signature = generateSignatureHex(
       this.config.secretKey,
       this.config.applicationCode, this.config.merchantCode,
       terminalCode, timestamp, transactionNo
@@ -107,7 +109,7 @@ class DuitNowGateway extends BaseGateway {
       .sort();
     const combinationString = fields.map(k => String(payload[k])).join('');
 
-    const expectedSig = generateSignature(this.config.secretKey, combinationString);
+    const expectedSig = generateSignatureHex(this.config.secretKey, combinationString);
 
     if (expectedSig !== receivedSig) {
       return { valid: false, reason: 'Signature mismatch' };
@@ -122,7 +124,7 @@ class DuitNowGateway extends BaseGateway {
     };
   }
 
-  // --- Poll until final status (fallback if no webhook) ---
+  // --- Poll until final status ---
   async pollTransaction({ referenceNo, terminalCode }, options = {}) {
     const { intervalMs = 3000, maxAttempts = 20, signal } = options;
 
@@ -163,6 +165,7 @@ class DuitNowGateway extends BaseGateway {
       provider: this.provider,
       serviceName: raw.ServiceName || '',
       message: raw.ResponseMessage || '',
+      qrData: raw.Data || '',  // DuitNow QR EMV string for banking apps
       raw
     };
   }
@@ -175,38 +178,24 @@ class DuitNowGateway extends BaseGateway {
     console.log(`[DuitNow] POST ${url}`);
     console.log(`[DuitNow] Body:`, JSON.stringify(body));
 
-    let res;
-    if (isMock) {
-      // Mock server accepts JSON
-      res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      });
-    } else {
-      // J&C ASMX endpoint — try form-encoded first, then JSON
-      const formBody = Object.entries(body)
-        .map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(v))
-        .join('&');
+    // J&C hack: send JSON body with text/plain Content-Type
+    // This bypasses ASP.NET's JSON deserializer (which needs [ScriptService] attribute)
+    const contentType = isMock ? 'application/json' : 'text/plain';
 
-      console.log(`[DuitNow] Form body: ${formBody}`);
-
-      res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8' },
-        body: formBody
-      });
-    }
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': contentType },
+      body: JSON.stringify(body)
+    });
 
     const text = await res.text();
-    console.log(`[DuitNow] Response ${res.status}:`, text.substring(0, 500));
+    console.log(`[DuitNow] Response ${res.status}: ${text.substring(0, 500)}`);
 
     if (!res.ok) {
       throw new Error(`DuitNow HTTP ${res.status}: ${text.substring(0, 200)}`);
     }
 
     try {
-      // Try JSON first
       const parsed = JSON.parse(text);
       // ASMX may wrap in {"d": "..."}
       if (parsed.d) {
@@ -214,14 +203,7 @@ class DuitNowGateway extends BaseGateway {
       }
       return parsed;
     } catch (e) {
-      // ASMX may return XML — try to extract JSON from XML
-      const jsonMatch = text.match(/<string[^>]*>([\s\S]*?)<\/string>/);
-      if (jsonMatch) {
-        try {
-          return JSON.parse(jsonMatch[1]);
-        } catch (e2) {}
-      }
-      throw new Error(`DuitNow: Unexpected response — ${text.substring(0, 300)}`);
+      throw new Error(`DuitNow: Invalid response — ${text.substring(0, 200)}`);
     }
   }
 }
