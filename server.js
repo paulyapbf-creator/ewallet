@@ -309,6 +309,20 @@ app.get('/api/version', (req, res) => {
   }
 });
 
+// Admin: update current version in version.json
+app.put('/api/admin/version', requirePin, (req, res) => {
+  try {
+    const versionFile = path.join(__dirname, 'version.json');
+    const info = JSON.parse(fs.readFileSync(versionFile, 'utf8'));
+    info.version = req.body.version;
+    fs.writeFileSync(versionFile, JSON.stringify(info, null, 2), 'utf8');
+    console.log(`[ADMIN] App version updated to ${info.version}`);
+    res.json(info);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   const s = settings.load();

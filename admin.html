@@ -263,6 +263,27 @@
         </div>
       </div>
 
+      <!-- App Update -->
+      <div class="section">
+        <div class="section-title">App Update</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#f9f9f9;border-radius:8px;margin-bottom:10px;font-size:13px">
+          <span style="color:#555">Installed version</span>
+          <strong id="appCurrentVer">-</strong>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#f9f9f9;border-radius:8px;margin-bottom:12px;font-size:13px">
+          <span style="color:#555">Latest on GitHub</span>
+          <strong id="appLatestVer">-</strong>
+        </div>
+        <div id="appUpdateAvail" style="display:none;padding:10px;background:#fef2f2;border-radius:8px;margin-bottom:10px;font-size:13px;color:#e31837;font-weight:600">
+          New version available!
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-test" onclick="checkAppUpdate()" id="btnCheckUpdate" style="font-size:13px;padding:10px">Check for Updates</button>
+          <a id="btnDownloadApk" href="#" style="display:none;flex:1;padding:10px;background:#e31837;color:#fff;border-radius:10px;font-size:13px;font-weight:600;text-align:center;text-decoration:none">Download APK</a>
+        </div>
+        <button id="btnSetVersion" onclick="setCurrentVersion()" style="display:none;width:100%;margin-top:8px;padding:10px;border:2px solid #16a34a;border-radius:10px;background:#f0fdf4;color:#16a34a;font-size:13px;font-weight:600;cursor:pointer">Mark as Current Version</button>
+      </div>
+
       <!-- Step 3: Launch Test -->
       <div class="section" id="step3Section">
         <div class="section-title">Step 3 — Run Test</div>
@@ -601,6 +622,71 @@ async function deleteProfileByName(name) {
     showMsg('actionMsg', e.message, false);
   }
 }
+
+// --- App Update ---
+let latestApkVersion = '';
+let latestApkUrl = '';
+
+async function checkAppUpdate() {
+  const btn = document.getElementById('btnCheckUpdate');
+  btn.textContent = 'Checking...';
+  btn.disabled = true;
+  try {
+    const info = await fetch(API + '/api/version').then(r => r.json());
+    document.getElementById('appCurrentVer').textContent = 'v' + info.version;
+
+    const rel = await fetch('https://api.github.com/repos/' + info.githubRepo + '/releases/latest').then(r => r.json());
+    latestApkVersion = rel.tag_name || '';
+    document.getElementById('appLatestVer').textContent = latestApkVersion || 'N/A';
+
+    const apkAsset = rel.assets && rel.assets.find(a => a.name.endsWith('.apk'));
+    latestApkUrl = apkAsset ? apkAsset.browser_download_url : (rel.html_url || '');
+
+    function parseVer(v) { return v.replace(/^v/, '').split('.').map(Number); }
+    function isNewer(a, b) {
+      const [a1,a2,a3] = parseVer(a), [b1,b2,b3] = parseVer(b);
+      if (a1 !== b1) return a1 > b1;
+      if (a2 !== b2) return a2 > b2;
+      return a3 > b3;
+    }
+
+    const hasUpdate = latestApkVersion && isNewer(latestApkVersion, info.version);
+    document.getElementById('appUpdateAvail').style.display = hasUpdate ? 'block' : 'none';
+    const dlBtn = document.getElementById('btnDownloadApk');
+    if (latestApkUrl) { dlBtn.href = latestApkUrl; dlBtn.style.display = 'block'; }
+    document.getElementById('btnSetVersion').style.display = latestApkVersion ? 'block' : 'none';
+
+    showMsg('actionMsg', hasUpdate ? 'Update available: ' + latestApkVersion : 'Already on latest version.', !hasUpdate);
+  } catch (e) {
+    showMsg('actionMsg', 'Update check failed: ' + e.message, false);
+  }
+  btn.textContent = 'Check for Updates';
+  btn.disabled = false;
+}
+
+async function setCurrentVersion() {
+  if (!latestApkVersion) return;
+  const ver = latestApkVersion.replace(/^v/, '');
+  try {
+    await fetch(API + '/api/admin/version', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
+      body: JSON.stringify({ version: ver })
+    }).then(r => r.json());
+    document.getElementById('appCurrentVer').textContent = 'v' + ver;
+    document.getElementById('appUpdateAvail').style.display = 'none';
+    showMsg('actionMsg', 'Version marked as ' + ver, true);
+  } catch (e) {
+    showMsg('actionMsg', 'Failed: ' + e.message, false);
+  }
+}
+
+// Load version on admin login
+const _origShow = show;
+show = function(id) {
+  _origShow(id);
+  if (id === 'settingsScreen') checkAppUpdate();
+};
 
 document.getElementById('pinInput').focus();
 </script>
