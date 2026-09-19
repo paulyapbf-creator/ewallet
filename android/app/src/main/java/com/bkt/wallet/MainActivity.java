@@ -94,6 +94,14 @@ public class MainActivity extends AppCompatActivity {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         }
 
+        // Expose app version to JavaScript synchronously
+        webView.addJavascriptInterface(new Object() {
+            @android.webkit.JavascriptInterface
+            public String getVersion() {
+                return BuildConfig.VERSION_NAME;
+            }
+        }, "BKTWallet");
+
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
@@ -104,13 +112,6 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
-                // Inject installed APK version into localStorage so the update check
-                // knows the currently installed version rather than the server version
-                String version = BuildConfig.VERSION_NAME;
-                view.evaluateJavascript(
-                    "localStorage.setItem('apkInstalledVersion', '" + version + "');",
-                    null
-                );
             }
 
             @Override

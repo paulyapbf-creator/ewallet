@@ -384,8 +384,9 @@ async function checkForUpdate() {
   try {
     const info = await fetch('/api/version').then(r => r.json());
     if (!info.githubRepo) return;
-    // Use version injected by APK (most accurate); fall back to server version.json
-    const currentVersion = localStorage.getItem('apkInstalledVersion') || info.version;
+    // Use version from native APK interface (synchronous, most accurate); fall back to server
+    const currentVersion = (window.BKTWallet ? window.BKTWallet.getVersion() : null)
+      || info.version;
     const dismissed = localStorage.getItem('updateDismissed');
     const rel = await fetch('https://api.github.com/repos/' + info.githubRepo + '/releases/latest').then(r => r.json());
     const latest = rel.tag_name;
