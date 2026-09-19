@@ -125,6 +125,12 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
                 if (timeoutRunnable != null) timeoutHandler.removeCallbacks(timeoutRunnable);
+                // Detect silent blank page (server unreachable on Samsung WebView)
+                if (url == null || url.equals("about:blank") || url.isEmpty()) {
+                    errorView.setVisibility(View.VISIBLE);
+                    String base = prefs.getString(KEY_URL, DEFAULT_URL);
+                    ((TextView) findViewById(R.id.tvErrorUrl)).setText(base + "/admin");
+                }
             }
 
             @Override
