@@ -62,14 +62,12 @@ public class MainActivity extends AppCompatActivity {
 
         setupWebView();
 
-        // First launch or invalid URL: ask for server URL
+        // Clear invalid URLs (e.g. GitHub URLs accidentally saved), then load
         String savedUrl = prefs.getString(KEY_URL, "");
-        if (savedUrl.isEmpty() || !isValidServerUrl(savedUrl)) {
+        if (!savedUrl.isEmpty() && !isValidServerUrl(savedUrl)) {
             prefs.edit().remove(KEY_URL).apply();
-            showUrlDialog(true);
-        } else {
-            loadServerUrl();
         }
+        loadServerUrl();
 
         // Long-press title area to change URL
         findViewById(R.id.titleBar).setOnLongClickListener(v -> {
