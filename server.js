@@ -1,6 +1,7 @@
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const fs = require('fs');
 const QRCode = require('qrcode');
 const { WebSocketServer } = require('ws');
 const { getGateway } = require('./index');
@@ -297,6 +298,16 @@ app.get('/api/qr', async (req, res) => {
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'demo.html')));
 app.get('/pay', (req, res) => res.sendFile(path.join(__dirname, 'demo-customer.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
+
+// APK version info
+app.get('/api/version', (req, res) => {
+  try {
+    const info = JSON.parse(fs.readFileSync(path.join(__dirname, 'version.json'), 'utf8'));
+    res.json(info);
+  } catch (e) {
+    res.json({ version: '1.0.0', githubRepo: '' });
+  }
+});
 
 // Health check
 app.get('/health', (req, res) => {

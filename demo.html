@@ -72,9 +72,26 @@
   .numpad-btn:active { transform: scale(0.95); }
   .numpad-btn.zero { grid-column: span 2; }
   .numpad-btn.del { background: #fef2f2; color: #e31837; border-color: #e31837; }
+
+  /* APK update banner */
+  #updateBanner { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a2e; color: #fff; padding: 12px 16px; z-index: 9999; box-shadow: 0 -2px 12px rgba(0,0,0,0.3); }
+  #updateBanner .banner-inner { max-width: 480px; margin: 0 auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  #updateBanner .banner-text { flex: 1; font-size: 13px; }
+  #updateBanner .banner-text strong { color: #64ffda; }
+  #updateBanner .btn-download { background: #e31837; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; text-decoration: none; }
+  #updateBanner .btn-dismiss { background: transparent; color: #8892b0; border: none; font-size: 18px; cursor: pointer; padding: 4px 8px; }
 </style>
 </head>
 <body>
+
+<!-- APK Update Banner -->
+<div id="updateBanner">
+  <div class="banner-inner">
+    <div class="banner-text">New version <strong id="updateVersion"></strong> available</div>
+    <a id="updateDownload" href="#" class="btn-download" target="_blank">Download APK</a>
+    <button class="btn-dismiss" onclick="dismissUpdate()" title="Dismiss">&#x2715;</button>
+  </div>
+</div>
 
 <div class="container">
   <div class="header">
@@ -352,6 +369,42 @@ async function cancelPayment() {
 }
 
 function reset() { show('formScreen'); document.getElementById('refNo').value = ''; currentRef = ''; currentExtRef = ''; resolved = false; numpadRaw = '0'; document.getElementById('amount').value = '0.00'; }
+
+// --- APK Update Check ---
+function parseVer(v) { return v.replace(/^v/, '').split('.').map(Number); }
+function isNewer(latest, current) {
+  const [la, lb, lc] = parseVer(latest);
+  const [ca, cb, cc] = parseVer(current);
+  if (la !== ca) return la > ca;
+  if (lb !== cb) return lb > cb;
+  return lc > cc;
+}
+
+async function checkForUpdate() {
+  try {
+    const info = await fetch('/api/version').then(r => r.json());
+    if (!info.githubRepo) return;
+    const dismissed = localStorage.getItem('updateDismissed');
+    const rel = await fetch('https://api.github.com/repos/' + info.githubRepo + '/releases/latest').then(r => r.json());
+    const latest = rel.tag_name;
+    if (!latest || !isNewer(latest, info.version)) return;
+    if (dismissed === latest) return;
+    // Find APK asset download URL
+    const apkAsset = rel.assets && rel.assets.find(a => a.name.endsWith('.apk'));
+    const downloadUrl = apkAsset ? apkAsset.browser_download_url : rel.html_url;
+    document.getElementById('updateVersion').textContent = latest;
+    document.getElementById('updateDownload').href = downloadUrl;
+    document.getElementById('updateBanner').style.display = 'block';
+  } catch (e) { /* silently ignore network errors */ }
+}
+
+function dismissUpdate() {
+  const ver = document.getElementById('updateVersion').textContent;
+  if (ver) localStorage.setItem('updateDismissed', ver);
+  document.getElementById('updateBanner').style.display = 'none';
+}
+
+checkForUpdate();
 </script>
 </body>
 </html>
