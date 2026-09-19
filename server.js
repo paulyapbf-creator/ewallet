@@ -299,6 +299,12 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'demo.html')));
 app.get('/pay', (req, res) => res.sendFile(path.join(__dirname, 'demo-customer.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
 
+// Public config (active gateway, no PIN required)
+app.get('/api/config', (req, res) => {
+  const s = settings.load();
+  res.json({ activeGateway: s.activeGateway || 'duitnow' });
+});
+
 // APK version info
 app.get('/api/version', (req, res) => {
   try {

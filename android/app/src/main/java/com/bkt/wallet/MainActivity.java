@@ -37,7 +37,7 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String PREFS = "bkt_wallet";
     private static final String KEY_URL = "server_url";
-    private static final String DEFAULT_URL = "http://192.168.1.100:4568";
+    private static final String DEFAULT_URL = "https://ewallet-36dc.up.railway.app";
 
     private WebView webView;
     private ProgressBar progressBar;

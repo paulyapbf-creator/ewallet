@@ -66,12 +66,37 @@
   .customer-link { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px; margin-top: 10px; text-align: center; font-size: 12px; color: #0369a1; }
   .customer-link a { color: #0369a1; font-weight: 600; }
 
-  .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
-  .numpad-btn { padding: 16px; border: 2px solid #e0e0e0; border-radius: 10px; background: #fff; font-size: 20px; font-weight: 700; cursor: pointer; text-align: center; transition: all 0.15s; color: #1a1a2e; }
-  .numpad-btn:hover { background: #fef2f2; border-color: #e31837; color: #e31837; }
-  .numpad-btn:active { transform: scale(0.95); }
+  .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+  .numpad-btn {
+    padding: 18px 10px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(160deg, #ffffff 0%, #e8e8e8 100%);
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    color: #1a1a2e;
+    box-shadow: 0 6px 0 #b8b8b8, 0 8px 8px rgba(0,0,0,0.18);
+    position: relative;
+    top: 0;
+    transition: top 0.08s ease, box-shadow 0.08s ease;
+    user-select: none;
+  }
+  .numpad-btn:active {
+    top: 4px;
+    box-shadow: 0 2px 0 #b8b8b8, 0 3px 4px rgba(0,0,0,0.1);
+  }
   .numpad-btn.zero { grid-column: span 2; }
-  .numpad-btn.del { background: #fef2f2; color: #e31837; border-color: #e31837; }
+  .numpad-btn.del {
+    background: linear-gradient(160deg, #ffe8ec 0%, #f8bec8 100%);
+    box-shadow: 0 6px 0 #d4747e, 0 8px 8px rgba(0,0,0,0.18);
+    color: #e31837;
+  }
+  .numpad-btn.del:active {
+    top: 4px;
+    box-shadow: 0 2px 0 #d4747e, 0 3px 4px rgba(0,0,0,0.1);
+  }
 
   /* APK update banner */
   #updateBanner { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: #1a1a2e; color: #fff; padding: 12px 16px; z-index: 9999; box-shadow: 0 -2px 12px rgba(0,0,0,0.3); }
@@ -103,20 +128,6 @@
 
     <!-- FORM SCREEN -->
     <div id="formScreen" class="screen active">
-      <div class="field">
-        <label>Payment Gateway</label>
-        <select id="gateway" style="padding:12px;border:2px solid #e0e0e0;border-radius:10px;font-size:15px;font-weight:600;width:100%">
-          <option value="duitnow">J&C Pacific</option>
-          <option value="ampersandpay">AmpersandPay</option>
-        </select>
-      </div>
-      <div class="field">
-        <label>Confirmation Method</label>
-        <div class="mode-toggle">
-          <div class="mode-btn active" id="modeWebhook" onclick="setMode('webhook')">Webhook</div>
-          <div class="mode-btn" id="modePoll" onclick="setMode('poll')">Polling</div>
-        </div>
-      </div>
       <div class="field">
         <label>Amount (RM)</label>
         <input type="text" id="amount" class="amount-input" value="0.00" readonly style="cursor:default">
@@ -184,7 +195,9 @@
 </div>
 
 <script>
-let currentRef = '', currentExtRef = '', paymentMode = 'webhook', resolved = false;
+let currentRef = '', currentExtRef = '', resolved = false;
+let activeGateway = 'duitnow';
+fetch('/api/config').then(r => r.json()).then(c => { activeGateway = c.activeGateway || 'duitnow'; }).catch(() => {});
 let numpadRaw = '000'; // stores cents as integer string, e.g. "100" = RM 1.00
 
 function numpadPress(key) {
@@ -223,11 +236,6 @@ function connectWs() {
 }
 connectWs();
 
-function setMode(m) {
-  paymentMode = m;
-  document.getElementById('modeWebhook').className = 'mode-btn' + (m === 'webhook' ? ' active' : '');
-  document.getElementById('modePoll').className = 'mode-btn' + (m === 'poll' ? ' active' : '');
-}
 
 function show(id) {
   ['formScreen','qrScreen','successScreen','failScreen'].forEach(s =>
@@ -262,7 +270,7 @@ function showSuccess(data, method) {
 }
 
 async function startPayment() {
-  const gateway = document.getElementById('gateway').value;
+  const gateway = activeGateway;
   const amount = parseFloat(document.getElementById('amount').value) || 0;
   const terminalCode = document.getElementById('terminal').value.trim();
   const referenceNo = document.getElementById('refNo').value.trim() || generateRef();
@@ -305,16 +313,11 @@ async function startPayment() {
     show('qrScreen');
     log('QR displayed — waiting for customer', 'warn');
 
-    // Start polling as primary or fallback
-    if (paymentMode === 'webhook') {
-      log('Listening for webhook callback...', 'ws');
-      setTimeout(() => {
-        if (!resolved) { log('Starting poll fallback...', 'warn'); startPolling(referenceNo, terminalCode, gateway); }
-      }, 15000);
-    } else {
-      log('Polling for payment status...', 'warn');
-      startPolling(referenceNo, terminalCode, gateway);
-    }
+    // Webhook primary with polling fallback
+    log('Listening for webhook callback...', 'ws');
+    setTimeout(() => {
+      if (!resolved) { log('Starting poll fallback...', 'warn'); startPolling(referenceNo, terminalCode, gateway); }
+    }, 15000);
   } catch (err) {
     log('Error: ' + err.message, 'err');
     show('failScreen');
@@ -323,7 +326,7 @@ async function startPayment() {
 }
 
 async function startPolling(referenceNo, terminalCode, gw) {
-  const gateway = gw || document.getElementById('gateway').value;
+  const gateway = gw || activeGateway;
   try {
     const res = await fetch('/api/payment/' + gateway + '/poll', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -338,7 +341,7 @@ async function startPolling(referenceNo, terminalCode, gw) {
 }
 
 async function simulatePay() {
-  const gateway = document.getElementById('gateway').value;
+  const gateway = activeGateway;
   log('Simulating customer payment...', 'warn');
   if (gateway === 'ampersandpay') {
     await fetch('/mock/ampersandpay/simulate-pay', {
@@ -358,8 +361,7 @@ async function cancelPayment() {
   resolved = true;
   log('Cancelling...', 'warn');
   try {
-    const gateway = document.getElementById('gateway').value;
-    await fetch('/api/payment/' + gateway + '/cancel', {
+    await fetch('/api/payment/' + activeGateway + '/cancel', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ transactionNo: currentExtRef || currentRef, externalRefNo: currentExtRef, amount: document.getElementById('amount').value, terminalCode: document.getElementById('terminal').value })
     }).then(r => r.json());
