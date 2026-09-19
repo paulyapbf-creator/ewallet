@@ -384,10 +384,12 @@ async function checkForUpdate() {
   try {
     const info = await fetch('/api/version').then(r => r.json());
     if (!info.githubRepo) return;
+    // Use version injected by APK (most accurate); fall back to server version.json
+    const currentVersion = localStorage.getItem('apkInstalledVersion') || info.version;
     const dismissed = localStorage.getItem('updateDismissed');
     const rel = await fetch('https://api.github.com/repos/' + info.githubRepo + '/releases/latest').then(r => r.json());
     const latest = rel.tag_name;
-    if (!latest || !isNewer(latest, info.version)) return;
+    if (!latest || !isNewer(latest, currentVersion)) return;
     if (dismissed === latest) return;
     // Find APK asset download URL
     const apkAsset = rel.assets && rel.assets.find(a => a.name.endsWith('.apk'));

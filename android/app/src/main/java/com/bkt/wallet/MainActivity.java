@@ -28,6 +28,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
+import com.bkt.wallet.BuildConfig;
 
 import java.io.File;
 
@@ -103,6 +104,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
+                // Inject installed APK version into localStorage so the update check
+                // knows the currently installed version rather than the server version
+                String version = BuildConfig.VERSION_NAME;
+                view.evaluateJavascript(
+                    "localStorage.setItem('apkInstalledVersion', '" + version + "');",
+                    null
+                );
             }
 
             @Override
