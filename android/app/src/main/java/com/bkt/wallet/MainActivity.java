@@ -190,7 +190,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void loadServerUrl() {
-        String url = prefs.getString(KEY_URL, DEFAULT_URL);
+        String base = prefs.getString(KEY_URL, DEFAULT_URL);
+        // Always start on admin panel
+        String url = base.replaceAll("/+$", "") + "/admin";
         if (!isNetworkAvailable()) {
             errorView.setVisibility(View.VISIBLE);
             ((TextView) findViewById(R.id.tvErrorUrl)).setText(url);
