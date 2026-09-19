@@ -140,6 +140,19 @@ public class MainActivity extends AppCompatActivity {
         });
 
         // Handle APK and file downloads
+        // Handle target="_blank" links — open in external browser
+        webView.setWebChromeClient(new android.webkit.WebChromeClient() {
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, android.os.Message resultMsg) {
+                String url = view.getHitTestResult().getExtra();
+                if (url != null) {
+                    startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+                }
+                return false;
+            }
+        });
+        settings.setSupportMultipleWindows(true);
+
         webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
             if (url.endsWith(".apk") || "application/vnd.android.package-archive".equals(mimetype)) {
                 downloadApk(url, URLUtil.guessFileName(url, contentDisposition, mimetype));
