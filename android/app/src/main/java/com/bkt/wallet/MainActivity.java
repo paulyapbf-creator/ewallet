@@ -11,6 +11,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -42,6 +43,8 @@ public class MainActivity extends AppCompatActivity {
     private ProgressBar progressBar;
     private View errorView;
     private SharedPreferences prefs;
+    private final Handler timeoutHandler = new Handler();
+    private Runnable timeoutRunnable;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,8 +62,10 @@ public class MainActivity extends AppCompatActivity {
 
         setupWebView();
 
-        // First launch: ask for server URL
-        if (!prefs.contains(KEY_URL)) {
+        // First launch or invalid URL: ask for server URL
+        String savedUrl = prefs.getString(KEY_URL, "");
+        if (savedUrl.isEmpty() || !isValidServerUrl(savedUrl)) {
+            prefs.edit().remove(KEY_URL).apply();
             showUrlDialog(true);
         } else {
             loadServerUrl();
@@ -107,11 +112,21 @@ public class MainActivity extends AppCompatActivity {
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
                 progressBar.setVisibility(View.VISIBLE);
                 errorView.setVisibility(View.GONE);
+                // Start 10-second timeout
+                if (timeoutRunnable != null) timeoutHandler.removeCallbacks(timeoutRunnable);
+                timeoutRunnable = () -> {
+                    progressBar.setVisibility(View.GONE);
+                    errorView.setVisibility(View.VISIBLE);
+                    String base = prefs.getString(KEY_URL, DEFAULT_URL);
+                    ((TextView) findViewById(R.id.tvErrorUrl)).setText(base + "/admin");
+                };
+                timeoutHandler.postDelayed(timeoutRunnable, 10000);
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
                 progressBar.setVisibility(View.GONE);
+                if (timeoutRunnable != null) timeoutHandler.removeCallbacks(timeoutRunnable);
             }
 
             @Override
@@ -230,6 +245,13 @@ public class MainActivity extends AppCompatActivity {
         }
 
         builder.show();
+    }
+
+    private boolean isValidServerUrl(String url) {
+        // Reject GitHub, Play Store, or non-http URLs
+        if (!url.startsWith("http://") && !url.startsWith("https://")) return false;
+        if (url.contains("github.com") || url.contains("play.google.com")) return false;
+        return true;
     }
 
     private boolean isNetworkAvailable() {
