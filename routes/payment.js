@@ -11,7 +11,7 @@ const settings = require('../lib/settings');
  */
 function createPaymentRouter(store, options = {}) {
   const router = express.Router();
-  const { onPaymentUpdate, onTransactionCreate, onTransactionCancel } = options;
+  const { onPaymentUpdate, onTransactionCreate, onTransactionCancel, onTransactionPaid } = options;
 
   // Idempotency: track processed ExternalRefNos to avoid duplicate processing
   const processedCallbacks = new Set();
@@ -119,6 +119,14 @@ function createPaymentRouter(store, options = {}) {
         { referenceNo, terminalCode: termCode },
         { intervalMs, maxAttempts }
       );
+
+      console.log(`[POLL] pollTransaction returned: success=${result.success} status=${result.status} referenceNo="${referenceNo}"`);
+      if (result.success && onTransactionPaid) {
+        try { onTransactionPaid({ ...result, referenceNo }); } catch(e) { console.error('[POLL] db update error:', e.message); }
+      } else if (!result.success) {
+        console.log(`[POLL] not paid — final status: ${result.status}`);
+      }
+
       res.json({ ...result, tenantId: tenantId || null });
     } catch (err) {
       if (!res.headersSent) {
