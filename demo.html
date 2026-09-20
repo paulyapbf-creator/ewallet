@@ -154,6 +154,10 @@
         <label>Terminal Code</label>
         <input type="text" id="terminal" value="POS-01">
       </div>
+      <div class="field">
+        <label>Transaction No.</label>
+        <input type="text" id="txRunningNo" readonly style="cursor:default;background:#f9f9f9;font-weight:700;letter-spacing:1px">
+      </div>
       <div class="customer-link" style="margin-top:10px">
         <a href="/admin" target="_blank">Admin Settings</a> | <a href="/pay" target="_blank">Customer App</a>
       </div>
@@ -167,6 +171,7 @@
         <div class="qr-label">Scan with DuitNow / Banking App</div>
         <div class="qr-label" id="qrRef" style="font-family:monospace"></div>
       </div>
+      <div class="qr-label" id="qrTxNo" style="font-weight:700;color:#1a1a2e"></div>
       <div class="spinner" style="margin-top:8px"></div>
       <div class="waiting-text" style="text-align:center">Waiting for customer payment...</div>
       <button class="btn btn-sim" onclick="simulatePay()">Simulate Customer Payment</button>
@@ -197,10 +202,15 @@
 <script>
 let currentRef = '', currentExtRef = '', resolved = false;
 let activeGateway = 'duitnow';
-fetch('/api/config').then(r => r.json()).then(c => { activeGateway = c.activeGateway || 'duitnow'; }).catch(() => {});
+let txRunningNo = 1;
+fetch('/api/config').then(r => r.json()).then(c => {
+  activeGateway = c.activeGateway || 'duitnow';
+  txRunningNo = c.txRunningNo || 1;
+  document.getElementById('txRunningNo').value = String(txRunningNo).padStart(6, '0');
+}).catch(() => {});
 let numpadRaw = '000'; // stores cents as integer string, e.g. "100" = RM 1.00
 
-// --- Audio: key click sound ---
+// --- Audio: sounds ---
 let audioCtx;
 function getAudioCtx() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -222,6 +232,29 @@ function playClick() {
       gain.connect(ctx.destination);
       src.start();
     });
+  } catch(e) {}
+}
+
+// Error sound: three descending beeps, loud and distinct
+function playError() {
+  try {
+    const ctx = getAudioCtx();
+    const doPlay = () => {
+      [0, 0.22, 0.44].forEach((delay, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(400 - i * 100, ctx.currentTime + delay);
+        gain.gain.setValueAtTime(0.5, ctx.currentTime + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.18);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + delay);
+        osc.stop(ctx.currentTime + delay + 0.18);
+      });
+    };
+    if (ctx.state === 'suspended') ctx.resume().then(doPlay);
+    else doPlay();
   } catch(e) {}
 }
 
@@ -317,9 +350,17 @@ function showSuccess(data, method) {
     '<div class="receipt-row"><span>Time</span><span>' + new Date().toLocaleString() + '</span></div>';
   log('Payment complete!', 'ok');
   speakAmount(parseFloat(data.amount));
+  // Increment transaction running no on server and update display
+  fetch('/api/txno/increment', { method: 'POST' })
+    .then(r => r.json())
+    .then(r => {
+      txRunningNo = r.txRunningNo;
+      document.getElementById('txRunningNo').value = String(txRunningNo).padStart(6, '0');
+    }).catch(() => {});
 }
 
 async function startPayment() {
+  playClick();
   const gateway = activeGateway;
   const amount = parseFloat(document.getElementById('amount').value) || 0;
   const terminalCode = document.getElementById('terminal').value.trim();
@@ -360,6 +401,7 @@ async function startPayment() {
     document.getElementById('qrImage').src = qrUrl || '';
     document.getElementById('qrImage').style.display = qrUrl ? '' : 'none';
     document.getElementById('qrRef').textContent = referenceNo;
+    document.getElementById('qrTxNo').textContent = 'Txn No: ' + String(txRunningNo).padStart(6, '0');
     show('qrScreen');
     log('QR displayed — waiting for customer', 'warn');
 
@@ -369,6 +411,7 @@ async function startPayment() {
       if (!resolved) { log('Starting poll fallback...', 'warn'); startPolling(referenceNo, terminalCode, gateway); }
     }, 15000);
   } catch (err) {
+    playError();
     log('Error: ' + err.message, 'err');
     show('failScreen');
     document.getElementById('failMsg').textContent = err.message;
@@ -408,6 +451,7 @@ async function simulatePay() {
 }
 
 async function cancelPayment() {
+  playError();
   resolved = true;
   log('Cancelling...', 'warn');
   try {

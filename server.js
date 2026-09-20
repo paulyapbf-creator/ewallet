@@ -299,10 +299,18 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'demo.html')));
 app.get('/pay', (req, res) => res.sendFile(path.join(__dirname, 'demo-customer.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
 
-// Public config (active gateway, no PIN required)
+// Public config (active gateway + tx running no, no PIN required)
 app.get('/api/config', (req, res) => {
   const s = settings.load();
-  res.json({ activeGateway: s.activeGateway || 'duitnow' });
+  res.json({ activeGateway: s.activeGateway || 'duitnow', txRunningNo: s.txRunningNo || 1 });
+});
+
+// Increment transaction running no (called by POS after successful payment)
+app.post('/api/txno/increment', (req, res) => {
+  const s = settings.load();
+  const next = (parseInt(s.txRunningNo) || 1) + 1;
+  settings.save({ txRunningNo: next });
+  res.json({ txRunningNo: next });
 });
 
 // APK version info
