@@ -146,17 +146,15 @@
         </div>
       </div>
       <button class="btn btn-pay" onclick="startPayment()" style="margin-bottom:14px">Pay Now</button>
-      <div class="field">
-        <label>Reference No</label>
-        <input type="text" id="refNo" placeholder="Auto-generated">
-      </div>
-      <div class="field">
-        <label>Terminal Code</label>
-        <input type="text" id="terminal" placeholder="e.g. POS-01" oninput="saveTerminalCode(this.value)">
-      </div>
-      <div class="field">
-        <label>Transaction No.</label>
-        <input type="text" id="txRunningNo" readonly style="cursor:default;background:#f9f9f9;font-weight:700;letter-spacing:1px">
+      <div style="display:flex;gap:10px">
+        <div class="field" style="flex:1">
+          <label>Terminal Code</label>
+          <input type="text" id="terminal" readonly style="cursor:default;background:#f9f9f9;font-weight:700;letter-spacing:1px">
+        </div>
+        <div class="field" style="flex:1">
+          <label>Transaction No.</label>
+          <input type="text" id="txRunningNo" readonly style="cursor:default;background:#f9f9f9;font-weight:700;letter-spacing:1px">
+        </div>
       </div>
       <div class="customer-link" style="margin-top:10px">
         <a href="/admin" target="_blank">Admin Settings</a> | <a href="/pay" target="_blank">Customer App</a>
@@ -210,9 +208,6 @@ let txRunningNo = 1;
   if (tc) document.getElementById('terminal').value = tc;
 })();
 
-function saveTerminalCode(val) {
-  if (val.trim()) localStorage.setItem('terminalCode', val.trim());
-}
 
 fetch('/api/config').then(r => r.json()).then(c => {
   activeGateway = c.activeGateway || 'duitnow';
@@ -383,8 +378,7 @@ async function startPayment() {
   const gateway = activeGateway;
   const amount = parseFloat(document.getElementById('amount').value) || 0;
   const terminalCode = document.getElementById('terminal').value.trim();
-  const referenceNo = document.getElementById('refNo').value.trim() || generateRef();
-  document.getElementById('refNo').value = referenceNo;
+  const referenceNo = generateRef();
   currentRef = referenceNo;
   resolved = false;
 
@@ -483,7 +477,7 @@ async function cancelPayment() {
   reset();
 }
 
-function reset() { show('formScreen'); document.getElementById('refNo').value = ''; currentRef = ''; currentExtRef = ''; resolved = false; numpadRaw = '0'; document.getElementById('amount').value = '0.00'; }
+function reset() { show('formScreen'); currentRef = ''; currentExtRef = ''; resolved = false; numpadRaw = '0'; document.getElementById('amount').value = '0.00'; }
 
 // --- APK Update Check ---
 function parseVer(v) { return v.replace(/^v/, '').split('.').map(Number); }
