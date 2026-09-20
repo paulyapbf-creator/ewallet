@@ -120,10 +120,14 @@ function createPaymentRouter(store, options = {}) {
         { intervalMs, maxAttempts }
       );
 
-      console.log(`[POLL] pollTransaction returned: success=${result.success} status=${result.status} referenceNo="${referenceNo}"`);
-      if (result.success && onTransactionPaid) {
+      console.log(`[POLL] result: success=${result.success} status=${result.status} ref="${referenceNo}" cb=${typeof onTransactionPaid}`);
+      if (result.success && typeof onTransactionPaid === 'function') {
+        console.log(`[POLL] calling onTransactionPaid...`);
         try { onTransactionPaid({ ...result, referenceNo }); } catch(e) { console.error('[POLL] db update error:', e.message); }
-      } else if (!result.success) {
+        console.log(`[POLL] onTransactionPaid done`);
+      } else if (result.success) {
+        console.log(`[POLL] WARNING: onTransactionPaid is ${typeof onTransactionPaid} — DB not updated!`);
+      } else {
         console.log(`[POLL] not paid — final status: ${result.status}`);
       }
 
