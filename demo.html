@@ -350,8 +350,11 @@ function showSuccess(data, method) {
     '<div class="receipt-row"><span>Time</span><span>' + new Date().toLocaleString() + '</span></div>';
   log('Payment complete!', 'ok');
   speakAmount(parseFloat(data.amount));
-  // Increment transaction running no on server and update display
-  fetch('/api/txno/increment', { method: 'POST' })
+  // Increment txno AND mark transaction as paid in DB
+  fetch('/api/txno/increment', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ referenceNo: data.referenceNo || currentRef, externalRefNo: data.externalRefNo || currentExtRef, method: method })
+  })
     .then(r => r.json())
     .then(r => {
       txRunningNo = r.txRunningNo;

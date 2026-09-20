@@ -9,6 +9,7 @@ const { generateSignature } = require('./lib/signature');
 const settings = require('./lib/settings');
 
 const db = require('./lib/db');
+const { mytNow } = db;
 
 const PORT = process.env.PORT || 4568;
 const RAILWAY_DOMAIN = process.env.RAILWAY_PUBLIC_DOMAIN;
@@ -282,9 +283,20 @@ app.use(createPaymentRouter(store, {
   onTransactionCancel: (referenceNo) => {
     try { db.updateByRef(referenceNo, { status: 'cancelled', completedAt: new Date().toISOString() }); } catch(e) {}
   },
+  onTransactionPaid: (result) => {
+    console.log(`[POLL] onTransactionPaid called: referenceNo="${result.referenceNo}"`);
+    try {
+      db.updateByRef(result.referenceNo, {
+        status: 'paid',
+        externalRefNo: result.externalRefNo || '',
+        method: 'polling',
+        completedAt: mytNow()
+      });
+    } catch(e) { console.error('[DB] poll update:', e.message); }
+  },
   onPaymentUpdate: (result) => {
     console.log(`[WEBHOOK → POS] ${result.referenceNo} → ${result.status}`);
-    broadcastToPos({ type: 'payment_update', ...result });
+    try { broadcastToPos({ type: 'payment_update', ...result }); } catch(e) { console.error('[WS] broadcast error:', e.message); }
     if (result.success) {
       try {
         db.updateByRef(result.referenceNo, {
@@ -313,9 +325,9 @@ app.get('/api/qr', async (req, res) => {
 // ================================================================
 // Serve UI
 // ================================================================
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'demo.html')));
-app.get('/pay', (req, res) => res.sendFile(path.join(__dirname, 'demo-customer.html')));
-app.get('/admin', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
+app.get('/', (req, res) => { res.set('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'demo.html')); });
+app.get('/pay', (req, res) => { res.set('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'demo-customer.html')); });
+app.get('/admin', (req, res) => { res.set('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'admin.html')); });
 
 // Public config (active gateway + tx running no, no PIN required)
 app.get('/api/config', (req, res) => {
@@ -323,11 +335,43 @@ app.get('/api/config', (req, res) => {
   res.json({ activeGateway: s.activeGateway || 'duitnow', txRunningNo: s.txRunningNo || 1 });
 });
 
-// Increment transaction running no (called by POS after successful payment)
+// Mark transaction as paid (called by POS frontend after payment confirmed)
+app.post('/api/payment/paid', (req, res) => {
+  const { referenceNo, externalRefNo, method } = req.body;
+  if (!referenceNo) return res.status(400).json({ error: 'referenceNo required' });
+  try {
+    db.updateByRef(referenceNo, {
+      status: 'paid',
+      externalRefNo: externalRefNo || '',
+      method: method || 'unknown',
+      completedAt: new Date().toISOString()
+    });
+    res.json({ success: true });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Increment transaction running no + mark transaction as paid (called by POS after successful payment)
 app.post('/api/txno/increment', (req, res) => {
   const s = settings.load();
   const next = (parseInt(s.txRunningNo) || 1) + 1;
   settings.save({ txRunningNo: next });
+
+  // Update transaction DB status if referenceNo provided
+  const { referenceNo, externalRefNo, method } = req.body || {};
+  console.log(`[TXNO] increment called, referenceNo="${referenceNo || '(none)'}"`);
+  if (referenceNo) {
+    try {
+      db.updateByRef(referenceNo, {
+        status: 'paid',
+        externalRefNo: externalRefNo || '',
+        method: method || 'unknown',
+        completedAt: mytNow()
+      });
+    } catch(e) { console.error('[DB] paid update failed:', e.message); }
+  }
+
   res.json({ txRunningNo: next });
 });
 
