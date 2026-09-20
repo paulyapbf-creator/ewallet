@@ -200,7 +200,56 @@ let activeGateway = 'duitnow';
 fetch('/api/config').then(r => r.json()).then(c => { activeGateway = c.activeGateway || 'duitnow'; }).catch(() => {});
 let numpadRaw = '000'; // stores cents as integer string, e.g. "100" = RM 1.00
 
+// --- Audio: key click sound ---
+let audioCtx;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function playClick() {
+  try {
+    const ctx = getAudioCtx();
+    const resume = ctx.state === 'suspended' ? ctx.resume() : Promise.resolve();
+    resume.then(() => {
+      const buf = ctx.createBuffer(1, ctx.sampleRate * 0.04, ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / data.length, 8);
+      const src = ctx.createBufferSource();
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.18, ctx.currentTime);
+      src.buffer = buf;
+      src.connect(gain);
+      gain.connect(ctx.destination);
+      src.start();
+    });
+  } catch(e) {}
+}
+
+// --- TTS: speak amount on payment success ---
+function speakAmount(amount) {
+  try {
+    const ringgit = Math.floor(amount);
+    const sen = Math.round((amount - ringgit) * 100);
+    let text = 'Payment received. ';
+    if (ringgit > 0 && sen > 0) text += ringgit + ' ringgit and ' + sen + ' sen.';
+    else if (ringgit > 0) text += ringgit + ' ringgit.';
+    else text += sen + ' sen.';
+    // Use native Android TTS if available (most reliable in WebView)
+    if (window.BKTWallet && window.BKTWallet.speak) {
+      window.BKTWallet.speak(text);
+    } else if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      const utt = new SpeechSynthesisUtterance(text);
+      utt.lang = 'en-US';
+      utt.rate = 0.95;
+      utt.volume = 1;
+      window.speechSynthesis.speak(utt);
+    }
+  } catch(e) {}
+}
+
 function numpadPress(key) {
+  playClick();
   if (key === 'del') {
     numpadRaw = numpadRaw.length > 1 ? numpadRaw.slice(0, -1) : '0';
   } else {
@@ -267,6 +316,7 @@ function showSuccess(data, method) {
     '<div class="receipt-row"><span>Method</span><span>' + label + '</span></div>' +
     '<div class="receipt-row"><span>Time</span><span>' + new Date().toLocaleString() + '</span></div>';
   log('Payment complete!', 'ok');
+  speakAmount(parseFloat(data.amount));
 }
 
 async function startPayment() {
