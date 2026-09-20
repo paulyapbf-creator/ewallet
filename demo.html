@@ -20,7 +20,7 @@
   .field input:focus { border-color: #e31837; }
   .amount-input { font-size: 28px !important; text-align: center; font-weight: 700; }
   .btn { width: 100%; padding: 13px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-  .btn-pay { background: linear-gradient(135deg, #e31837, #c41230); color: #fff; }
+  .btn-pay { background: linear-gradient(135deg, #e31837, #c41230); color: #fff; font-size: 20px; padding: 18px; letter-spacing: 0.5px; }
   .btn-pay:hover { opacity: 0.9; }
   .btn-pay:disabled { background: #ccc; cursor: not-allowed; }
   .btn-cancel { background: #f5f5f5; color: #e31837; border: 2px solid #e31837; margin-top: 10px; }
@@ -145,6 +145,7 @@
           <button class="numpad-btn del" onclick="numpadPress('del')">⌫</button>
         </div>
       </div>
+      <button class="btn btn-pay" onclick="startPayment()" style="margin-bottom:14px">Pay Now</button>
       <div class="field">
         <label>Reference No</label>
         <input type="text" id="refNo" placeholder="Auto-generated">
@@ -153,7 +154,6 @@
         <label>Terminal Code</label>
         <input type="text" id="terminal" value="POS-01">
       </div>
-      <button class="btn btn-pay" onclick="startPayment()">Pay Now</button>
       <div class="customer-link" style="margin-top:10px">
         <a href="/admin" target="_blank">Admin Settings</a> | <a href="/pay" target="_blank">Customer App</a>
       </div>
