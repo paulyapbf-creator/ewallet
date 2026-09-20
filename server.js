@@ -7,6 +7,7 @@ const { WebSocketServer } = require('ws');
 const { getGateway } = require('./index');
 const { generateSignature } = require('./lib/signature');
 const settings = require('./lib/settings');
+const db = require('./lib/db');
 
 const PORT = process.env.PORT || 4568;
 const RAILWAY_DOMAIN = process.env.RAILWAY_PUBLIC_DOMAIN;
@@ -274,9 +275,25 @@ const store = {
 };
 
 app.use(createPaymentRouter(store, {
+  onTransactionCreate: (data) => {
+    try { db.insert(data); } catch(e) { console.error('[DB] insert:', e.message); }
+  },
+  onTransactionCancel: (referenceNo) => {
+    try { db.updateByRef(referenceNo, { status: 'cancelled', completedAt: new Date().toISOString() }); } catch(e) {}
+  },
   onPaymentUpdate: (result) => {
     console.log(`[WEBHOOK → POS] ${result.referenceNo} → ${result.status}`);
     broadcastToPos({ type: 'payment_update', ...result });
+    if (result.success) {
+      try {
+        db.updateByRef(result.referenceNo, {
+          status: 'paid',
+          externalRefNo: result.externalRefNo || '',
+          method: result.method || 'webhook',
+          completedAt: new Date().toISOString()
+        });
+      } catch(e) { console.error('[DB] update:', e.message); }
+    }
   }
 }));
 
@@ -335,6 +352,22 @@ app.put('/api/admin/version', requirePin, (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ================================================================
+// Transactions Report API
+// ================================================================
+app.get('/api/admin/transactions', requirePin, (req, res) => {
+  try {
+    const { limit, offset, gateway, status, from, to } = req.query;
+    const result = db.query({ limit: parseInt(limit)||50, offset: parseInt(offset)||0, gateway, status, from, to });
+    res.json(result);
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/transactions/summary', requirePin, (req, res) => {
+  try { res.json(db.summary()); }
+  catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Health check

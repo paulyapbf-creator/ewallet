@@ -378,7 +378,7 @@ async function startPayment() {
   try {
     const res = await fetch('/api/payment/' + gateway + '/create', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount, referenceNo, terminalCode })
+      body: JSON.stringify({ amount, referenceNo, terminalCode, txRunningNo })
     }).then(r => r.json());
 
     if (!res.success && !res.checkoutUrl) throw new Error(res.message || 'Create failed');
@@ -457,7 +457,7 @@ async function cancelPayment() {
   try {
     await fetch('/api/payment/' + activeGateway + '/cancel', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transactionNo: currentExtRef || currentRef, externalRefNo: currentExtRef, amount: document.getElementById('amount').value, terminalCode: document.getElementById('terminal').value })
+      body: JSON.stringify({ transactionNo: currentExtRef || currentRef, referenceNo: currentRef, externalRefNo: currentExtRef, amount: document.getElementById('amount').value, terminalCode: document.getElementById('terminal').value })
     }).then(r => r.json());
     log('Cancelled', 'ok');
   } catch (e) { log('Cancel error: ' + e.message, 'err'); }

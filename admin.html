@@ -65,6 +65,31 @@
   .screen { display: none; }
   .screen.active { display: block; }
 
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 20px; }
+  .tab-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; background: #f0f2f5; color: #555; transition: all 0.2s; }
+  .tab-btn.active { background: #1a1a2e; color: #fff; }
+
+  .summary-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+  .summary-card { background: #f9f9f9; border-radius: 10px; padding: 14px; text-align: center; }
+  .summary-card .val { font-size: 22px; font-weight: 800; color: #1a1a2e; }
+  .summary-card .lbl { font-size: 11px; color: #888; margin-top: 4px; }
+  .summary-card.green .val { color: #16a34a; }
+  .summary-card.red .val { color: #e31837; }
+
+  .filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .filter-row input, .filter-row select { padding: 8px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 12px; outline: none; flex: 1; min-width: 90px; }
+  .filter-row button { padding: 8px 14px; border: none; border-radius: 8px; background: #1a1a2e; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
+
+  .tx-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .tx-table th { background: #1a1a2e; color: #fff; padding: 8px 6px; text-align: left; font-weight: 600; }
+  .tx-table td { padding: 8px 6px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+  .tx-table tr:hover td { background: #f9f9f9; }
+  .status-paid { color: #16a34a; font-weight: 700; }
+  .status-cancelled { color: #e31837; font-weight: 700; }
+  .status-pending { color: #d97706; font-weight: 700; }
+  .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 12px; color: #555; }
+  .pagination button { padding: 6px 14px; border: 2px solid #e0e0e0; border-radius: 8px; background: #fff; font-size: 12px; cursor: pointer; }
+  .pagination button:disabled { opacity: 0.4; cursor: default; }
 
   .gw-panel { display: none; }
   .gw-panel.active { display: block; }
@@ -95,6 +120,11 @@
 
     <!-- SETTINGS -->
     <div id="settingsScreen" class="screen">
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('settings')">Settings</button>
+        <button class="tab-btn" onclick="switchTab('reports')">Reports</button>
+      </div>
+      <div id="tabSettings">
 
       <!-- Profiles -->
       <div class="section">
@@ -299,7 +329,62 @@
           <a href="/terminal" target="_blank" class="launch-btn launch-terminal" style="display:flex">Card Terminal<span>ECPI Terminal</span></a>
         </div>
       </div>
-    </div>
+      </div><!-- end tabSettings -->
+
+      <!-- REPORTS TAB -->
+      <div id="tabReports" style="display:none">
+        <div class="summary-cards">
+          <div class="summary-card green"><div class="val" id="rPaid">-</div><div class="lbl">Paid</div></div>
+          <div class="summary-card"><div class="val" id="rTotal">-</div><div class="lbl">Total Txns</div></div>
+          <div class="summary-card green"><div class="val" id="rAmount">-</div><div class="lbl">Total Amount (RM)</div></div>
+          <div class="summary-card red"><div class="val" id="rCancelled">-</div><div class="lbl">Cancelled</div></div>
+        </div>
+
+        <div class="filter-row">
+          <input type="date" id="fFrom" placeholder="From">
+          <input type="date" id="fTo" placeholder="To">
+          <select id="fGateway">
+            <option value="">All Gateways</option>
+            <option value="duitnow">J&C Pacific</option>
+            <option value="ampersandpay">AmpersandPay</option>
+            <option value="ecpi">ECPI</option>
+          </select>
+          <select id="fStatus">
+            <option value="">All Status</option>
+            <option value="paid">Paid</option>
+            <option value="pending">Pending</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+          <button onclick="loadReport(0)">Filter</button>
+        </div>
+
+        <div style="overflow-x:auto">
+          <table class="tx-table">
+            <thead>
+              <tr>
+                <th>Txn No</th>
+                <th>Date/Time</th>
+                <th>Reference No</th>
+                <th>Amount</th>
+                <th>Gateway</th>
+                <th>Terminal</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="txTableBody">
+              <tr><td colspan="7" style="text-align:center;color:#888;padding:20px">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination">
+          <button id="btnPrev" onclick="reportPage(-1)" disabled>&#8592; Prev</button>
+          <span id="pageInfo"></span>
+          <button id="btnNext" onclick="reportPage(1)">Next &#8594;</button>
+        </div>
+      </div><!-- end tabReports -->
+
+    </div><!-- end settingsScreen -->
   </div>
 </div>
 
@@ -686,6 +771,77 @@ async function setCurrentVersion() {
   } catch (e) {
     showMsg('actionMsg', 'Failed: ' + e.message, false);
   }
+}
+
+// --- Reports ---
+let reportOffset = 0;
+const REPORT_LIMIT = 20;
+let reportTotal = 0;
+
+function switchTab(tab) {
+  document.getElementById('tabSettings').style.display = tab === 'settings' ? '' : 'none';
+  document.getElementById('tabReports').style.display = tab === 'reports' ? '' : 'none';
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (i === 0) === (tab === 'settings'));
+  });
+  if (tab === 'reports') { loadSummary(); loadReport(0); }
+}
+
+async function loadSummary() {
+  try {
+    const s = await fetch(API + '/api/admin/transactions/summary', { headers: { 'x-admin-pin': authPin } }).then(r => r.json());
+    document.getElementById('rPaid').textContent = s.paid || 0;
+    document.getElementById('rTotal').textContent = s.total || 0;
+    document.getElementById('rAmount').textContent = 'RM ' + (s.totalAmount || 0).toFixed(2);
+    document.getElementById('rCancelled').textContent = s.cancelled || 0;
+  } catch(e) {}
+}
+
+async function loadReport(offset) {
+  if (offset !== undefined) reportOffset = offset;
+  const from = document.getElementById('fFrom').value;
+  const to   = document.getElementById('fTo').value;
+  const gw   = document.getElementById('fGateway').value;
+  const st   = document.getElementById('fStatus').value;
+  const params = new URLSearchParams({ limit: REPORT_LIMIT, offset: reportOffset });
+  if (from) params.append('from', from);
+  if (to)   params.append('to', to);
+  if (gw)   params.append('gateway', gw);
+  if (st)   params.append('status', st);
+  try {
+    const r = await fetch(API + '/api/admin/transactions?' + params, { headers: { 'x-admin-pin': authPin } }).then(r => r.json());
+    reportTotal = r.total || 0;
+    const gwNames = { duitnow: 'J&C', ampersandpay: 'Ampersand', ecpi: 'ECPI' };
+    const body = document.getElementById('txTableBody');
+    if (!r.rows || r.rows.length === 0) {
+      body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888;padding:20px">No transactions found</td></tr>';
+    } else {
+      body.innerHTML = r.rows.map(t => `
+        <tr>
+          <td>${t.txRunningNo ? String(t.txRunningNo).padStart(6,'0') : '-'}</td>
+          <td style="white-space:nowrap">${t.createdAt || '-'}</td>
+          <td style="font-family:monospace;font-size:10px">${t.referenceNo || '-'}</td>
+          <td style="font-weight:700">RM ${parseFloat(t.amount||0).toFixed(2)}</td>
+          <td>${gwNames[t.gateway] || t.gateway || '-'}</td>
+          <td>${t.terminalCode || '-'}</td>
+          <td class="status-${t.status}">${(t.status||'').toUpperCase()}</td>
+        </tr>`).join('');
+    }
+    const from_ = reportOffset + 1;
+    const to_   = Math.min(reportOffset + REPORT_LIMIT, reportTotal);
+    document.getElementById('pageInfo').textContent = reportTotal ? `${from_}–${to_} of ${reportTotal}` : '0 records';
+    document.getElementById('btnPrev').disabled = reportOffset === 0;
+    document.getElementById('btnNext').disabled = reportOffset + REPORT_LIMIT >= reportTotal;
+  } catch(e) {
+    document.getElementById('txTableBody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:#e31837">Error loading data</td></tr>';
+  }
+}
+
+function reportPage(dir) {
+  const next = reportOffset + dir * REPORT_LIMIT;
+  if (next < 0 || next >= reportTotal) return;
+  reportOffset = next;
+  loadReport();
 }
 
 // Load version on admin login

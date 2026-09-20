@@ -11,7 +11,7 @@ const settings = require('../lib/settings');
  */
 function createPaymentRouter(store, options = {}) {
   const router = express.Router();
-  const { onPaymentUpdate } = options;
+  const { onPaymentUpdate, onTransactionCreate, onTransactionCancel } = options;
 
   // Idempotency: track processed ExternalRefNos to avoid duplicate processing
   const processedCallbacks = new Set();
@@ -70,7 +70,7 @@ function createPaymentRouter(store, options = {}) {
   // Create transaction
   router.post('/api/payment/:provider/create', async (req, res) => {
     try {
-      const { tenantId, amount, referenceNo, terminalCode } = req.body;
+      const { tenantId, amount, referenceNo, terminalCode, txRunningNo } = req.body;
       const s = await loadTenantSettings(tenantId);
       const config = getGatewayConfig(s, req.params.provider);
       const gateway = getGateway(req.params.provider, config);
@@ -78,6 +78,12 @@ function createPaymentRouter(store, options = {}) {
       // Use tenant's terminalCode if not provided in request
       const termCode = terminalCode || s.terminalCode;
       const result = await gateway.createTransaction({ amount, referenceNo, terminalCode: termCode });
+
+      // Save to DB
+      if (onTransactionCreate) {
+        onTransactionCreate({ txRunningNo: txRunningNo || null, referenceNo, amount: parseFloat(amount), gateway: req.params.provider, terminalCode: termCode });
+      }
+
       res.json({ ...result, tenantId: tenantId || null });
     } catch (err) {
       res.status(500).json({ success: false, status: 'error', message: err.message });
@@ -124,13 +130,16 @@ function createPaymentRouter(store, options = {}) {
   // Cancel transaction
   router.post('/api/payment/:provider/cancel', async (req, res) => {
     try {
-      const { tenantId, transactionNo, terminalCode } = req.body;
+      const { tenantId, transactionNo, terminalCode, referenceNo } = req.body;
       const s = await loadTenantSettings(tenantId);
       const config = getGatewayConfig(s, req.params.provider);
       const gateway = getGateway(req.params.provider, config);
 
       const termCode = terminalCode || s.terminalCode;
       const result = await gateway.cancelTransaction({ transactionNo, terminalCode: termCode });
+
+      if (onTransactionCancel && referenceNo) onTransactionCancel(referenceNo);
+
       res.json({ ...result, tenantId: tenantId || null });
     } catch (err) {
       res.status(500).json({ success: false, status: 'error', message: err.message });
