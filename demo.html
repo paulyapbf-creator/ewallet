@@ -152,7 +152,7 @@
       </div>
       <div class="field">
         <label>Terminal Code</label>
-        <input type="text" id="terminal" value="POS-01">
+        <input type="text" id="terminal" placeholder="e.g. POS-01" oninput="saveTerminalCode(this.value)">
       </div>
       <div class="field">
         <label>Transaction No.</label>
@@ -203,6 +203,21 @@
 let currentRef = '', currentExtRef = '', resolved = false;
 let activeGateway = 'duitnow';
 let txRunningNo = 1;
+
+// Restore or auto-generate persistent terminal code for this device
+(function() {
+  let tc = localStorage.getItem('terminalCode');
+  if (!tc) {
+    tc = 'POS-' + Math.random().toString(36).slice(2,4).toUpperCase();
+    localStorage.setItem('terminalCode', tc);
+  }
+  document.getElementById('terminal').value = tc;
+})();
+
+function saveTerminalCode(val) {
+  if (val.trim()) localStorage.setItem('terminalCode', val.trim());
+}
+
 fetch('/api/config').then(r => r.json()).then(c => {
   activeGateway = c.activeGateway || 'duitnow';
   txRunningNo = c.txRunningNo || 1;

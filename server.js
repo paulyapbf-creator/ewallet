@@ -404,8 +404,8 @@ app.put('/api/admin/version', requirePin, (req, res) => {
 // ================================================================
 app.get('/api/admin/transactions', requirePin, (req, res) => {
   try {
-    const { limit, offset, gateway, status, from, to } = req.query;
-    const result = db.query({ limit: parseInt(limit)||50, offset: parseInt(offset)||0, gateway, status, from, to });
+    const { limit, offset, gateway, status, from, to, terminal } = req.query;
+    const result = db.query({ limit: parseInt(limit)||50, offset: parseInt(offset)||0, gateway, status, from, to, terminal });
     res.json(result);
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
