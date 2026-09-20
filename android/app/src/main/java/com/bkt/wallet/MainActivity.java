@@ -12,6 +12,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.speech.tts.TextToSpeech;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -32,6 +33,7 @@ import androidx.core.content.FileProvider;
 import com.bkt.wallet.BuildConfig;
 
 import java.io.File;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -45,6 +47,8 @@ public class MainActivity extends AppCompatActivity {
     private SharedPreferences prefs;
     private final Handler timeoutHandler = new Handler();
     private Runnable timeoutRunnable;
+    private TextToSpeech tts;
+    private boolean ttsReady = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,6 +56,14 @@ public class MainActivity extends AppCompatActivity {
 
         // Keep screen on for POS use
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
+        // Initialize Text-to-Speech
+        tts = new TextToSpeech(this, status -> {
+            if (status == TextToSpeech.SUCCESS) {
+                tts.setLanguage(Locale.US);
+                ttsReady = true;
+            }
+        });
 
         setContentView(R.layout.activity_main);
 
@@ -97,11 +109,18 @@ public class MainActivity extends AppCompatActivity {
             settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         }
 
-        // Expose app version to JavaScript synchronously
+        // Expose app version and TTS to JavaScript
         webView.addJavascriptInterface(new Object() {
             @android.webkit.JavascriptInterface
             public String getVersion() {
                 return BuildConfig.VERSION_NAME;
+            }
+
+            @android.webkit.JavascriptInterface
+            public void speak(String text) {
+                if (ttsReady && tts != null) {
+                    tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "bkt_tts");
+                }
             }
         }, "BKTWallet");
 
@@ -283,5 +302,14 @@ public class MainActivity extends AppCompatActivity {
     protected void onPause() {
         super.onPause();
         webView.onPause();
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (tts != null) {
+            tts.stop();
+            tts.shutdown();
+        }
+        super.onDestroy();
     }
 }
