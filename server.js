@@ -332,7 +332,7 @@ app.get('/admin', (req, res) => { res.set('Cache-Control', 'no-store'); res.send
 // Public config (active gateway + tx running no, no PIN required)
 app.get('/api/config', (req, res) => {
   const s = settings.load();
-  res.json({ activeGateway: s.activeGateway || 'duitnow', txRunningNo: s.txRunningNo || 1 });
+  res.json({ activeGateway: s.activeGateway || 'duitnow', txRunningNo: s.txRunningNo || 1, terminalCode: s.terminalCode || 'POS-01' });
 });
 
 // Mark transaction as paid (called by POS frontend after payment confirmed)

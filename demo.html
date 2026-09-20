@@ -204,14 +204,10 @@ let currentRef = '', currentExtRef = '', resolved = false;
 let activeGateway = 'duitnow';
 let txRunningNo = 1;
 
-// Restore or auto-generate persistent terminal code for this device
+// Restore terminal code from localStorage (device-specific)
 (function() {
-  let tc = localStorage.getItem('terminalCode');
-  if (!tc) {
-    tc = 'POS-' + Math.random().toString(36).slice(2,4).toUpperCase();
-    localStorage.setItem('terminalCode', tc);
-  }
-  document.getElementById('terminal').value = tc;
+  const tc = localStorage.getItem('terminalCode');
+  if (tc) document.getElementById('terminal').value = tc;
 })();
 
 function saveTerminalCode(val) {
@@ -222,6 +218,11 @@ fetch('/api/config').then(r => r.json()).then(c => {
   activeGateway = c.activeGateway || 'duitnow';
   txRunningNo = c.txRunningNo || 1;
   document.getElementById('txRunningNo').value = String(txRunningNo).padStart(6, '0');
+  // If this device has no saved terminal code, use the admin settings default
+  if (!localStorage.getItem('terminalCode') && c.terminalCode) {
+    localStorage.setItem('terminalCode', c.terminalCode);
+    document.getElementById('terminal').value = c.terminalCode;
+  }
 }).catch(() => {});
 let numpadRaw = '000'; // stores cents as integer string, e.g. "100" = RM 1.00
 
