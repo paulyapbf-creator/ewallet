@@ -8,21 +8,7 @@ const { getGateway } = require('./index');
 const { generateSignature } = require('./lib/signature');
 const settings = require('./lib/settings');
 
-// DB is optional — if better-sqlite3 fails to compile (e.g. on some cloud hosts),
-// fall back to no-ops so payments still work
-let db;
-try {
-  db = require('./lib/db');
-  console.log('[DB] SQLite ready');
-} catch (e) {
-  console.warn('[DB] Unavailable, running without database:', e.message);
-  db = {
-    insert: () => {},
-    updateByRef: () => {},
-    query: () => ({ rows: [], total: 0 }),
-    summary: () => ({ total: 0, paid: 0, cancelled: 0, pending: 0, totalAmount: 0 })
-  };
-}
+const db = require('./lib/db');
 
 const PORT = process.env.PORT || 4568;
 const RAILWAY_DOMAIN = process.env.RAILWAY_PUBLIC_DOMAIN;
