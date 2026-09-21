@@ -411,8 +411,10 @@ app.get('/api/admin/transactions', requirePin, (req, res) => {
 });
 
 app.get('/api/admin/transactions/summary', requirePin, (req, res) => {
-  try { res.json(db.summary()); }
-  catch(e) { res.status(500).json({ error: e.message }); }
+  try {
+    const { gateway, from, to, terminal } = req.query;
+    res.json(db.summary({ gateway: gateway || '', from: from || '', to: to || '', terminal: terminal || '' }));
+  } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Health check

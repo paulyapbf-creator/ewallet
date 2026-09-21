@@ -356,7 +356,7 @@
             <option value="cancelled">Cancelled</option>
           </select>
           <input type="text" id="fTerminal" placeholder="Terminal (e.g. POS-01)" style="min-width:130px">
-          <button onclick="loadReport(0)">Filter</button>
+          <button onclick="loadSummary(); loadReport(0)">Filter</button>
         </div>
 
         <div style="overflow-x:auto">
@@ -790,7 +790,16 @@ function switchTab(tab) {
 
 async function loadSummary() {
   try {
-    const s = await fetch(API + '/api/admin/transactions/summary', { headers: { 'x-admin-pin': authPin } }).then(r => r.json());
+    const from     = document.getElementById('fFrom').value;
+    const to       = document.getElementById('fTo').value;
+    const gw       = document.getElementById('fGateway').value;
+    const terminal = document.getElementById('fTerminal').value.trim();
+    const params = new URLSearchParams();
+    if (from)     params.append('from', from);
+    if (to)       params.append('to', to);
+    if (gw)       params.append('gateway', gw);
+    if (terminal) params.append('terminal', terminal);
+    const s = await fetch(API + '/api/admin/transactions/summary?' + params, { headers: { 'x-admin-pin': authPin } }).then(r => r.json());
     document.getElementById('rPaid').textContent = s.paid || 0;
     document.getElementById('rTotal').textContent = s.total || 0;
     document.getElementById('rAmount').textContent = 'RM ' + (s.totalAmount || 0).toFixed(2);
