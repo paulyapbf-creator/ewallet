@@ -121,7 +121,7 @@
 <div class="container">
   <div class="header">
     <h1>POS Terminal</h1>
-    <p>DuitNow QR Payment</p>
+    <p id="gatewayLabel">QR Payment</p>
     <div class="badge badge-ws" id="wsStatus">connecting...</div>
   </div>
   <div class="body">
@@ -207,6 +207,8 @@ fetch('/api/config').then(r => r.json()).then(c => {
   txRunningNo = c.txRunningNo || 1;
   document.getElementById('txRunningNo').value = String(txRunningNo).padStart(6, '0');
   document.getElementById('terminal').value = c.terminalCode || 'POS-01';
+  const gwLabels = { duitnow: 'DuitNow QR Payment', ampersandpay: 'AmpersandPay QR Payment', ecpi: 'Card Payment' };
+  document.getElementById('gatewayLabel').textContent = gwLabels[c.activeGateway] || 'QR Payment';
 }).catch(() => {});
 let numpadRaw = '000'; // stores cents as integer string, e.g. "100" = RM 1.00
 
