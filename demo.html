@@ -135,12 +135,6 @@
       <div class="field">
         <label>Amount (RM)</label>
         <input type="text" id="amount" class="amount-input" value="0.00" readonly style="cursor:default">
-        <div id="credStrip" style="background:#f0f2f5;border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:10px;color:#444;line-height:1.7">
-          <div><span style="color:#888">Gateway:</span> <b id="cs-gw">loading...</b> &nbsp;<span style="color:#888">Profile:</span> <b id="cs-profile">loading...</b></div>
-          <div><span style="color:#888">Merchant ID:</span> <b id="cs-mid">loading...</b></div>
-          <div><span style="color:#888">Secret Key:</span> <b id="cs-key" style="font-family:monospace">loading...</b></div>
-          <div><span style="color:#888">API URL:</span> <b id="cs-url" style="word-break:break-all">loading...</b></div>
-        </div>
         <div class="numpad">
           <button class="numpad-btn" onclick="numpadPress('1')">1</button>
           <button class="numpad-btn" onclick="numpadPress('2')">2</button>
@@ -154,6 +148,12 @@
           <button class="numpad-btn zero" onclick="numpadPress('0')">0</button>
           <button class="numpad-btn del" onclick="numpadPress('del')">⌫</button>
         </div>
+      </div>
+      <div id="credStrip" style="background:#f0f2f5;border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:10px;color:#444;line-height:1.7">
+        <div><span style="color:#888">Gateway:</span> <b id="cs-gw">loading...</b> &nbsp;<span style="color:#888">Profile:</span> <b id="cs-profile">loading...</b></div>
+        <div><span style="color:#888">Merchant ID:</span> <b id="cs-mid">loading...</b></div>
+        <div><span style="color:#888">Secret Key:</span> <b id="cs-key" style="font-family:monospace">loading...</b></div>
+        <div><span style="color:#888">API URL:</span> <b id="cs-url" style="word-break:break-all">loading...</b></div>
       </div>
       <button class="btn btn-pay" onclick="startPayment()" style="margin-bottom:14px">Pay Now</button>
       <div style="display:flex;gap:10px">
