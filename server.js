@@ -66,6 +66,10 @@ app.get('/api/admin/profiles', requirePin, (req, res) => {
   res.json({ profiles: settings.listProfiles() });
 });
 
+app.get('/api/admin/profiles/all', requirePin, (req, res) => {
+  res.json({ profiles: settings.loadProfiles() });
+});
+
 app.post('/api/admin/profiles/:name', requirePin, (req, res) => {
   const current = settings.load();
   settings.saveProfile(req.params.name, { ...current, ...req.body });
