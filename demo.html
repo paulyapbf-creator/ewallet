@@ -202,6 +202,7 @@
       <div class="status-icon">&#10007;</div>
       <div class="status-title" style="color:#e31837">Payment Failed</div>
       <div id="failMsg" style="font-size:14px;color:#666;margin:8px 0"></div>
+      <div id="failGateway" style="font-size:12px;color:#999;margin-bottom:12px"></div>
       <button class="btn btn-new" onclick="reset()">Try Again</button>
     </div>
 
@@ -380,15 +381,26 @@ function showSuccess(data, method) {
 
 async function startPayment() {
   playClick();
-  const gateway = activeGateway;
   const amount = parseFloat(document.getElementById('amount').value) || 0;
   const terminalCode = document.getElementById('terminal').value.trim();
-  const referenceNo = generateRef();
-  currentRef = referenceNo;
-  resolved = false;
 
   if (!amount || amount <= 0) return alert('Enter a valid amount');
   if (!terminalCode) return alert('Enter terminal code');
+
+  // Re-fetch config to get the latest active gateway before every payment
+  try {
+    const fresh = await fetch('/api/config').then(r => r.json());
+    activeGateway = fresh.activeGateway || activeGateway;
+    const gwLabels = { duitnow: 'DuitNow QR Payment', ampersandpay: 'AmpersandPay QR Payment', ecpi: 'Card Payment' };
+    const gwLabel = gwLabels[activeGateway] || 'QR Payment';
+    document.getElementById('gatewayLabel').textContent = gwLabel;
+    document.getElementById('profileName').textContent = gwLabel;
+  } catch(e) { /* use existing activeGateway if fetch fails */ }
+
+  const gateway = activeGateway;
+  const referenceNo = generateRef();
+  currentRef = referenceNo;
+  resolved = false;
 
   document.getElementById('log').innerHTML = '';
   log('Creating ' + gateway + ' transaction...', 'warn');
@@ -433,6 +445,7 @@ async function startPayment() {
     log('Error: ' + err.message, 'err');
     show('failScreen');
     document.getElementById('failMsg').textContent = err.message;
+    document.getElementById('failGateway').textContent = 'Profile: ' + (document.getElementById('profileName').textContent || gateway);
   }
 }
 
