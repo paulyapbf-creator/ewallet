@@ -325,9 +325,10 @@ app.get('/api/qr', async (req, res) => {
 // ================================================================
 // Serve UI
 // ================================================================
-app.get('/', (req, res) => { res.set('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'demo.html')); });
-app.get('/pay', (req, res) => { res.set('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'demo-customer.html')); });
-app.get('/admin', (req, res) => { res.set('Cache-Control', 'no-store'); res.sendFile(path.join(__dirname, 'admin.html')); });
+const NO_CACHE = { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache', 'Expires': '0' };
+app.get('/', (req, res) => { res.set(NO_CACHE); res.sendFile(path.join(__dirname, 'demo.html')); });
+app.get('/pay', (req, res) => { res.set(NO_CACHE); res.sendFile(path.join(__dirname, 'demo-customer.html')); });
+app.get('/admin', (req, res) => { res.set(NO_CACHE); res.sendFile(path.join(__dirname, 'admin.html')); });
 
 // Public config (active gateway + tx running no, no PIN required)
 app.get('/api/config', (req, res) => {
