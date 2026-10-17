@@ -1,6 +1,6 @@
 {
   "name": "bkt-wallet",
-  "version": "1.0.0",
+  "version": "1.0.53",
   "description": "Multi-gateway payment integration for BKT POS",
   "main": "index.js",
   "scripts": {
