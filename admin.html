@@ -137,6 +137,7 @@
         <button class="tab-btn active" onclick="switchTab('profiles')">Profiles</button>
         <button class="tab-btn" onclick="switchTab('test')">Test</button>
         <button class="tab-btn" onclick="switchTab('settings')">Settings</button>
+        <button class="tab-btn" onclick="switchTab('qrtest')">QR Test</button>
         <button class="tab-btn" onclick="switchTab('reports')">Reports</button>
       </div>
 
@@ -359,6 +360,52 @@
         <button class="btn btn-primary" onclick="saveGeneralSettings()">Save Settings</button>
       </div><!-- end tabSettings -->
 
+      <!-- ── QR TEST TAB ── -->
+      <div id="tabQrtest" class="tab-content" style="display:none">
+        <div class="section-title">QR Payment Test</div>
+
+        <!-- Profile & amount -->
+        <div class="field">
+          <label>Profile</label>
+          <select id="qrProfileSelect" onchange="onQrProfileChange(this.value)">
+            <option value="">-- Select Profile --</option>
+          </select>
+        </div>
+        <div id="qrProfileInfo" style="display:none;background:#f9f9f9;border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:11px;line-height:1.8">
+          <div><span style="color:#888">Gateway:</span> <b id="qi-gw">—</b> &nbsp; <span style="color:#888">Mode:</span> <b id="qi-mode">—</b></div>
+          <div><span style="color:#888">Merchant ID:</span> <b id="qi-mid">—</b></div>
+          <div><span style="color:#888">Secret Key:</span> <b id="qi-key" style="font-family:monospace">—</b></div>
+          <div><span style="color:#888">API URL:</span> <b id="qi-url" style="word-break:break-all">—</b></div>
+        </div>
+
+        <div class="field">
+          <label>Amount (RM)</label>
+          <input type="number" id="qrAmount" placeholder="1.00" min="0.01" step="0.01" value="1.00" style="font-size:20px;font-weight:700;text-align:center">
+        </div>
+
+        <div id="qrTestMsg" class="msg"></div>
+        <button class="btn btn-primary" id="qrCreateBtn" onclick="qrCreate()">Create QR Payment</button>
+
+        <!-- QR display -->
+        <div id="qrTestDisplay" style="display:none;text-align:center;margin-top:16px">
+          <div style="font-size:13px;color:#888;margin-bottom:6px" id="qrTestRef"></div>
+          <img id="qrTestImage" src="" alt="QR Code" style="border:3px solid #1a1a2e;border-radius:12px;padding:8px;background:#fff;max-width:220px">
+          <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+            <button class="btn btn-success" onclick="qrSimulate()">Simulate Customer Payment</button>
+            <button class="btn btn-danger" onclick="qrCancel()">Cancel Payment</button>
+          </div>
+          <div id="qrTestLog" style="margin-top:12px;background:#1a1a2e;border-radius:8px;padding:10px;max-height:120px;overflow-y:auto;text-align:left"></div>
+        </div>
+
+        <!-- Result -->
+        <div id="qrTestResult" style="display:none;margin-top:16px;border-radius:10px;padding:16px;text-align:center">
+          <div style="font-size:40px" id="qrResultIcon"></div>
+          <div style="font-size:17px;font-weight:700;margin:8px 0" id="qrResultTitle"></div>
+          <div id="qrResultReceipt" style="background:#f9f9f9;border-radius:8px;padding:12px;font-size:12px;text-align:left;margin-top:8px"></div>
+          <button class="btn btn-primary" onclick="qrReset()" style="margin-top:12px">New Test</button>
+        </div>
+      </div><!-- end tabQrtest -->
+
       <!-- ── REPORTS TAB ── -->
       <div id="tabReports" class="tab-content" style="display:none">
         <div class="summary-cards">
@@ -462,11 +509,13 @@ async function doLogin() {
 // ── Tabs ──────────────────────────────────────────────────────────────
 function switchTab(tab) {
   document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
-  document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).style.display = 'block';
-  document.querySelectorAll('.tab-btn').forEach((b, i) => {
-    b.classList.toggle('active', b.textContent.toLowerCase().startsWith(tab));
+  const tabId = 'tab' + tab.charAt(0).toUpperCase() + tab.slice(1);
+  document.getElementById(tabId).style.display = 'block';
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase().replace(' ','') === tab.toLowerCase());
   });
   if (tab === 'reports') { loadSummary(); loadReport(0); }
+  if (tab === 'qrtest') { populateQrTestDropdown(); }
 }
 
 // ── Profiles ──────────────────────────────────────────────────────────
@@ -844,6 +893,167 @@ function reportPage(dir) {
   if (next < 0 || next >= reportTotal) return;
   reportOffset = next;
   loadReport();
+}
+
+// ── QR Test Tab ───────────────────────────────────────────────────────
+let qrRef = '', qrExtRef = '', qrGateway = '', qrResolved = false;
+
+function populateQrTestDropdown() {
+  const sel = document.getElementById('qrProfileSelect');
+  const names = Object.keys(allProfiles);
+  sel.innerHTML = '<option value="">-- Select Profile --</option>' +
+    names.map(n => `<option value="${n}"${n === currentActive ? ' selected' : ''}>${n}${n === currentActive ? ' ★ active' : ''}</option>`).join('');
+  if (currentActive && allProfiles[currentActive]) onQrProfileChange(currentActive);
+}
+
+function onQrProfileChange(name) {
+  if (!name || !allProfiles[name]) { document.getElementById('qrProfileInfo').style.display = 'none'; return; }
+  const p = allProfiles[name];
+  const gw = p.activeGateway || 'duitnow';
+  const mid = gw === 'duitnow' ? (p.duitnowMerchantCode || p.duitnowAppCode || '—') : (p.ampersandpayMerchantId || '—');
+  const key = gw === 'duitnow' ? p.duitnowSecretKey : p.ampersandpaySecretKey;
+  const url = gw === 'duitnow' ? p.duitnowApiUrl : p.ampersandpayApiUrl;
+  const live = isLive(p);
+  document.getElementById('qi-gw').textContent = GW_NAMES[gw] || gw;
+  document.getElementById('qi-mode').innerHTML = `<span class="chip ${live ? 'chip-live' : 'chip-sandbox'}">${live ? 'LIVE' : 'SANDBOX'}</span>`;
+  document.getElementById('qi-mid').textContent = mid;
+  document.getElementById('qi-key').textContent = mask(key);
+  document.getElementById('qi-url').textContent = url || '(mock/sandbox)';
+  document.getElementById('qrProfileInfo').style.display = 'block';
+}
+
+function qrLog(msg, type) {
+  const el = document.getElementById('qrTestLog');
+  const color = type === 'ok' ? '#64ffda' : type === 'err' ? '#ff6b6b' : '#ffd93d';
+  el.innerHTML += `<p style="font-size:10px;font-family:monospace;color:${color};margin:2px 0">[${new Date().toLocaleTimeString()}] ${msg}</p>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+async function qrCreate() {
+  const profileName = document.getElementById('qrProfileSelect').value;
+  if (!profileName) { showMsg('qrTestMsg', 'Select a profile first', false); return; }
+  const amount = parseFloat(document.getElementById('qrAmount').value);
+  if (!amount || amount <= 0) { showMsg('qrTestMsg', 'Enter a valid amount', false); return; }
+
+  // Activate the selected profile first
+  try {
+    await fetch(API + '/api/admin/profiles/' + encodeURIComponent(profileName) + '/load', {
+      headers: { 'x-admin-pin': authPin }
+    }).then(r => r.json());
+    currentActive = profileName;
+  } catch(e) { showMsg('qrTestMsg', 'Failed to activate profile: ' + e.message, false); return; }
+
+  const p = allProfiles[profileName];
+  qrGateway = p.activeGateway || 'duitnow';
+  qrRef = 'TEST-' + Date.now() + '-' + Math.random().toString(36).slice(2,5).toUpperCase();
+  qrResolved = false;
+
+  const btn = document.getElementById('qrCreateBtn');
+  btn.textContent = 'Creating...';
+  btn.disabled = true;
+  document.getElementById('qrTestDisplay').style.display = 'none';
+  document.getElementById('qrTestResult').style.display = 'none';
+  document.getElementById('qrTestLog').innerHTML = '';
+
+  try {
+    qrLog('Activating profile: ' + profileName, 'warn');
+    qrLog('Creating ' + qrGateway + ' transaction...', 'warn');
+    const res = await fetch(API + '/api/payment/' + qrGateway + '/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, referenceNo: qrRef, terminalCode: p.terminalCode || 'ADMIN-TEST', txRunningNo: 0 })
+    }).then(r => r.json());
+
+    if (!res.success && !res.checkoutUrl) throw new Error(res.message || 'Create failed');
+    qrExtRef = res.externalRefNo || '';
+    qrLog('Created: ' + (res.externalRefNo || res.message), 'ok');
+
+    let qrUrl = res.qrCode || (res.raw && res.raw.QRCode);
+    if (!qrUrl && (res.raw && res.raw.Data)) qrUrl = '/api/qr?data=' + encodeURIComponent(res.raw.Data);
+    if (!qrUrl && res.checkoutUrl) qrUrl = '/api/qr?data=' + encodeURIComponent(res.checkoutUrl);
+
+    document.getElementById('qrTestImage').src = qrUrl || '';
+    document.getElementById('qrTestImage').style.display = qrUrl ? '' : 'none';
+    document.getElementById('qrTestRef').textContent = 'Ref: ' + qrRef;
+    document.getElementById('qrTestDisplay').style.display = 'block';
+    qrLog('QR ready — waiting for payment...', 'warn');
+  } catch(e) {
+    showMsg('qrTestMsg', e.message, false);
+    qrLog('Error: ' + e.message, 'err');
+  }
+  btn.textContent = 'Create QR Payment';
+  btn.disabled = false;
+}
+
+async function qrSimulate() {
+  qrLog('Simulating customer payment...', 'warn');
+  try {
+    if (qrGateway === 'ampersandpay') {
+      await fetch(API + '/mock/ampersandpay/simulate-pay', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ txId: qrExtRef })
+      });
+    } else {
+      await fetch(API + '/mock/simulate-pay', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referenceNo: qrRef })
+      });
+    }
+    qrLog('Payment simulated — polling...', 'ok');
+    qrPoll();
+  } catch(e) { qrLog('Simulate error: ' + e.message, 'err'); }
+}
+
+async function qrPoll() {
+  try {
+    const res = await fetch(API + '/api/payment/' + qrGateway + '/poll', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ referenceNo: qrRef, externalRefNo: qrExtRef, intervalMs: 2000, maxAttempts: 30 })
+    }).then(r => r.json());
+    if (res.success && !qrResolved) { qrResolved = true; qrShowResult(true, res); }
+    else if (!qrResolved) { qrLog('Poll: ' + (res.message || 'not paid'), 'err'); }
+  } catch(e) { qrLog('Poll error: ' + e.message, 'err'); }
+}
+
+async function qrCancel() {
+  qrResolved = true;
+  qrLog('Cancelling...', 'warn');
+  try {
+    await fetch(API + '/api/payment/' + qrGateway + '/cancel', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ referenceNo: qrRef, externalRefNo: qrExtRef, amount: document.getElementById('qrAmount').value })
+    });
+    qrLog('Cancelled.', 'ok');
+  } catch(e) {}
+  qrShowResult(false, { message: 'Cancelled by user' });
+}
+
+function qrShowResult(success, data) {
+  document.getElementById('qrTestDisplay').style.display = 'none';
+  const res = document.getElementById('qrTestResult');
+  res.style.display = 'block';
+  res.style.background = success ? '#f0fdf4' : '#fef2f2';
+  document.getElementById('qrResultIcon').textContent = success ? '✓' : '✗';
+  document.getElementById('qrResultIcon').style.color = success ? '#16a34a' : '#e31837';
+  document.getElementById('qrResultTitle').textContent = success ? 'Payment Successful' : 'Payment Failed';
+  document.getElementById('qrResultTitle').style.color = success ? '#16a34a' : '#e31837';
+  if (success) {
+    document.getElementById('qrResultReceipt').innerHTML =
+      `<div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#888">Amount</span><b>RM ${parseFloat(data.amount||0).toFixed(2)}</b></div>
+       <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#888">Reference</span><b style="font-size:10px;font-family:monospace">${data.referenceNo||qrRef}</b></div>
+       <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#888">External Ref</span><b style="font-size:10px;font-family:monospace">${data.externalRefNo||qrExtRef||'—'}</b></div>
+       <div style="display:flex;justify-content:space-between;padding:4px 0"><span style="color:#888">Profile</span><b>${document.getElementById('qrProfileSelect').value}</b></div>`;
+  } else {
+    document.getElementById('qrResultReceipt').innerHTML = `<div style="color:#888;text-align:center">${data.message || 'Unknown error'}</div>`;
+  }
+}
+
+function qrReset() {
+  qrRef = ''; qrExtRef = ''; qrResolved = false; qrGateway = '';
+  document.getElementById('qrTestDisplay').style.display = 'none';
+  document.getElementById('qrTestResult').style.display = 'none';
+  document.getElementById('qrTestLog').innerHTML = '';
+  document.getElementById('qrAmount').value = '1.00';
 }
 
 document.getElementById('pinInput').focus();
