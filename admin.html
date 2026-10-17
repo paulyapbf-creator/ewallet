@@ -223,6 +223,11 @@
               <div class="hint">Provided by AmpersandPay</div>
             </div>
             <div class="field">
+              <label>Terminal ID</label>
+              <input type="text" id="fApTerminalId" placeholder="e.g. T0001">
+              <div class="hint">Terminal identifier provided by AmpersandPay</div>
+            </div>
+            <div class="field">
               <label>Secret Key</label>
               <input type="password" id="fApSecretKey" placeholder="SHA512 secret key">
             </div>
@@ -573,6 +578,7 @@ function openForm(prefill) {
   document.getElementById('fDnSecretKey').value = '';
   document.getElementById('fDnApiUrl').value = '';
   document.getElementById('fApMerchantId').value = '';
+  document.getElementById('fApTerminalId').value = '';
   document.getElementById('fApSecretKey').value = '';
   document.getElementById('fApApiUrl').value = '';
   document.getElementById('fApChannel').value = 'EW';
@@ -607,6 +613,7 @@ function editProfile(name) {
   document.getElementById('fDnSecretKey').value = p.duitnowSecretKey || '';
   document.getElementById('fDnApiUrl').value = p.duitnowApiUrl || '';
   document.getElementById('fApMerchantId').value = p.ampersandpayMerchantId || '';
+  document.getElementById('fApTerminalId').value = p.ampersandpayTerminalId || '';
   document.getElementById('fApSecretKey').value = p.ampersandpaySecretKey || '';
   document.getElementById('fApApiUrl').value = p.ampersandpayApiUrl || '';
   document.getElementById('fApChannel').value = p.ampersandpayChannel || 'EW';
@@ -664,6 +671,7 @@ function gatherProfileData() {
     duitnowApiUrl: document.getElementById('fDnApiUrl').value.trim(),
     duitnowEnabled: gw === 'duitnow',
     ampersandpayMerchantId: document.getElementById('fApMerchantId').value.trim(),
+    ampersandpayTerminalId: document.getElementById('fApTerminalId').value.trim(),
     ampersandpaySecretKey: document.getElementById('fApSecretKey').value.trim(),
     ampersandpayApiUrl: document.getElementById('fApApiUrl').value.trim(),
     ampersandpayChannel: document.getElementById('fApChannel').value,

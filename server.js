@@ -274,6 +274,7 @@ const store = {
       duitnowSecretKey: s.duitnowSecretKey || 'DEMOSECRET',
       duitnowApiBaseUrl: s.duitnowApiUrl || `${BASE_URL}/mock`,
       ampersandpayMerchantId: s.ampersandpayMerchantId || '',
+      ampersandpayTerminalId: s.ampersandpayTerminalId || '',
       ampersandpaySecretKey: s.ampersandpaySecretKey || '',
       ampersandpayApiUrl: s.ampersandpayApiUrl || `${BASE_URL}/mock/ampersandpay`
     };

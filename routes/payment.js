@@ -29,6 +29,7 @@ function createPaymentRouter(store, options = {}) {
     if (provider === 'ampersandpay') {
       return {
         merchantId: s.ampersandpayMerchantId,
+        terminalId: s.ampersandpayTerminalId || '',
         secretKey: s.ampersandpaySecretKey,
         apiBaseUrl: s.ampersandpayApiUrl
       };

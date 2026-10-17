@@ -33,6 +33,7 @@ class AmpersandPayGateway extends BaseGateway {
   async createTransaction({ amount, referenceNo, terminalCode, channel, custName, custEmail }) {
     const body = {
       merchantId: this.config.merchantId,
+      terminalId: this.config.terminalId || undefined,
       txType: 'SALE',
       txAmount: parseFloat(amount).toFixed(2),
       txCurrency: 'MYR',
