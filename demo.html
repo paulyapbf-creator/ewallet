@@ -66,6 +66,11 @@
   .customer-link { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px; margin-top: 10px; text-align: center; font-size: 12px; color: #0369a1; }
   .customer-link a { color: #0369a1; font-weight: 600; }
 
+  .profile-indicator { display: flex; align-items: center; justify-content: space-between; background: #fef2f2; border: 2px solid #e31837; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; }
+  .profile-indicator .profile-label { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
+  .profile-indicator .profile-name { font-size: 15px; font-weight: 700; color: #e31837; }
+  .profile-indicator .profile-dot { width: 10px; height: 10px; border-radius: 50%; background: #16a34a; flex-shrink: 0; box-shadow: 0 0 0 3px rgba(22,163,74,0.2); }
+
   .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
   .numpad-btn {
     padding: 18px 10px;
@@ -145,6 +150,13 @@
           <button class="numpad-btn del" onclick="numpadPress('del')">⌫</button>
         </div>
       </div>
+      <div class="profile-indicator" id="profileIndicator">
+        <div>
+          <div class="profile-label">Active Payment Profile</div>
+          <div class="profile-name" id="profileName">Loading...</div>
+        </div>
+        <div class="profile-dot"></div>
+      </div>
       <button class="btn btn-pay" onclick="startPayment()" style="margin-bottom:14px">Pay Now</button>
       <div style="display:flex;gap:10px">
         <div class="field" style="flex:1">
@@ -208,7 +220,9 @@ fetch('/api/config').then(r => r.json()).then(c => {
   document.getElementById('txRunningNo').value = String(txRunningNo).padStart(6, '0');
   document.getElementById('terminal').value = c.terminalCode || 'POS-01';
   const gwLabels = { duitnow: 'DuitNow QR Payment', ampersandpay: 'AmpersandPay QR Payment', ecpi: 'Card Payment' };
-  document.getElementById('gatewayLabel').textContent = gwLabels[c.activeGateway] || 'QR Payment';
+  const gwLabel = gwLabels[c.activeGateway] || 'QR Payment';
+  document.getElementById('gatewayLabel').textContent = gwLabel;
+  document.getElementById('profileName').textContent = gwLabel;
 }).catch(() => {});
 let numpadRaw = '000'; // stores cents as integer string, e.g. "100" = RM 1.00
 
