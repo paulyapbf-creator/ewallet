@@ -338,7 +338,8 @@ app.get('/admin', (req, res) => { res.set(NO_CACHE); res.sendFile(path.join(__di
 // Public config (active gateway + tx running no, no PIN required)
 app.get('/api/config', (req, res) => {
   const s = settings.load();
-  const gw = s.activeGateway || 'duitnow';
+  const VALID_GW = ['duitnow', 'ampersandpay', 'ecpi'];
+  const gw = VALID_GW.includes(s.activeGateway) ? s.activeGateway : 'duitnow';
   const mask = v => v && v.length > 6 ? '••••••' + v.slice(-6) : v ? '••••••' : '(not set)';
 
   let gwInfo = {};
