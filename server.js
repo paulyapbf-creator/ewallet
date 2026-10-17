@@ -332,7 +332,31 @@ app.get('/admin', (req, res) => { res.set('Cache-Control', 'no-store'); res.send
 // Public config (active gateway + tx running no, no PIN required)
 app.get('/api/config', (req, res) => {
   const s = settings.load();
-  res.json({ activeGateway: s.activeGateway || 'duitnow', txRunningNo: s.txRunningNo || 1, terminalCode: s.terminalCode || 'POS-01' });
+  const gw = s.activeGateway || 'duitnow';
+  const mask = v => v && v.length > 6 ? '••••••' + v.slice(-6) : v ? '••••••' : '(not set)';
+
+  let gwInfo = {};
+  if (gw === 'duitnow') {
+    gwInfo = {
+      apiUrl: s.duitnowApiUrl || '(not set)',
+      merchantId: s.duitnowMerchantCode || s.duitnowAppCode || '(not set)',
+      secretKey: mask(s.duitnowSecretKey)
+    };
+  } else if (gw === 'ampersandpay') {
+    gwInfo = {
+      apiUrl: s.ampersandpayApiUrl || '(not set)',
+      merchantId: s.ampersandpayMerchantId || '(not set)',
+      secretKey: mask(s.ampersandpaySecretKey)
+    };
+  }
+
+  res.json({
+    activeGateway: gw,
+    activeProfile: s.activeProfile || 'default',
+    txRunningNo: s.txRunningNo || 1,
+    terminalCode: s.terminalCode || 'POS-01',
+    gwInfo
+  });
 });
 
 // Mark transaction as paid (called by POS frontend after payment confirmed)

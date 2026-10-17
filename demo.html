@@ -182,6 +182,7 @@
         <div class="qr-label" id="qrRef" style="font-family:monospace"></div>
       </div>
       <div class="qr-label" id="qrTxNo" style="font-weight:700;color:#1a1a2e"></div>
+      <div id="qrGwInfo" style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:11px;text-align:left;line-height:1.8"></div>
       <div class="spinner" style="margin-top:8px"></div>
       <div class="waiting-text" style="text-align:center">Waiting for customer payment...</div>
       <button class="btn btn-sim" onclick="simulatePay()">Simulate Customer Payment</button>
@@ -214,6 +215,7 @@
 let currentRef = '', currentExtRef = '', resolved = false;
 let activeGateway = 'duitnow';
 let txRunningNo = 1;
+let currentGwInfo = {};
 
 fetch('/api/config').then(r => r.json()).then(c => {
   activeGateway = c.activeGateway || 'duitnow';
@@ -391,6 +393,8 @@ async function startPayment() {
   try {
     const fresh = await fetch('/api/config').then(r => r.json());
     activeGateway = fresh.activeGateway || activeGateway;
+    currentGwInfo = fresh.gwInfo || {};
+    currentGwInfo.profile = fresh.activeProfile || 'default';
     const gwLabels = { duitnow: 'DuitNow QR Payment', ampersandpay: 'AmpersandPay QR Payment', ecpi: 'Card Payment' };
     const gwLabel = gwLabels[activeGateway] || 'QR Payment';
     document.getElementById('gatewayLabel').textContent = gwLabel;
@@ -432,6 +436,12 @@ async function startPayment() {
     document.getElementById('qrImage').style.display = qrUrl ? '' : 'none';
     document.getElementById('qrRef').textContent = referenceNo;
     document.getElementById('qrTxNo').textContent = 'Txn No: ' + String(txRunningNo).padStart(6, '0');
+    document.getElementById('qrGwInfo').innerHTML =
+      '<span style="color:#888">Gateway:</span> <b>' + (document.getElementById('profileName').textContent) + '</b> &nbsp;|&nbsp; ' +
+      '<span style="color:#888">Profile:</span> <b>' + (currentGwInfo.profile || '—') + '</b><br>' +
+      '<span style="color:#888">Merchant/App ID:</span> <b>' + (currentGwInfo.merchantId || '—') + '</b><br>' +
+      '<span style="color:#888">Secret Key:</span> <b style="font-family:monospace">' + (currentGwInfo.secretKey || '—') + '</b><br>' +
+      '<span style="color:#888">API Endpoint:</span> <b style="word-break:break-all">' + (currentGwInfo.apiUrl || '—') + '</b>';
     show('qrScreen');
     log('QR displayed — waiting for customer', 'warn');
 
