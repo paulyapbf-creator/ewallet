@@ -124,8 +124,8 @@
     <h1>POS Terminal</h1>
     <p id="gatewayLabel">QR Payment</p>
     <div class="badge badge-ws" id="wsStatus">connecting...</div>
-    <div id="profileBadge" style="margin-top:6px;font-size:11px;opacity:0.9">
-      <span style="opacity:0.7">Profile:</span> <span id="profileName" style="font-weight:700">Loading...</span>
+    <div style="margin-top:6px;font-size:11px;opacity:0.9">
+      <span style="opacity:0.7">Profile:</span> <span id="profileName" style="font-weight:700">—</span>
     </div>
   </div>
   <div class="body">
@@ -135,6 +135,12 @@
       <div class="field">
         <label>Amount (RM)</label>
         <input type="text" id="amount" class="amount-input" value="0.00" readonly style="cursor:default">
+        <div id="credStrip" style="background:#f0f2f5;border-radius:8px;padding:7px 10px;margin-bottom:10px;font-size:10px;color:#444;line-height:1.7;display:none">
+          <div><span style="color:#888">Gateway:</span> <b id="cs-gw">—</b> &nbsp;<span style="color:#888">Profile:</span> <b id="cs-profile">—</b></div>
+          <div><span style="color:#888">Merchant ID:</span> <b id="cs-mid">—</b></div>
+          <div><span style="color:#888">Secret Key:</span> <b id="cs-key" style="font-family:monospace">—</b></div>
+          <div><span style="color:#888">API URL:</span> <b id="cs-url" style="word-break:break-all">—</b></div>
+        </div>
         <div class="numpad">
           <button class="numpad-btn" onclick="numpadPress('1')">1</button>
           <button class="numpad-btn" onclick="numpadPress('2')">2</button>
@@ -209,16 +215,27 @@ let activeGateway = 'duitnow';
 let txRunningNo = 1;
 let currentGwInfo = {};
 
-fetch('/api/config').then(r => r.json()).then(c => {
+function applyConfig(c) {
   activeGateway = c.activeGateway || 'duitnow';
+  currentGwInfo = c.gwInfo || {};
+  currentGwInfo.profile = c.activeProfile || 'default';
   txRunningNo = c.txRunningNo || 1;
   document.getElementById('txRunningNo').value = String(txRunningNo).padStart(6, '0');
   document.getElementById('terminal').value = c.terminalCode || 'POS-01';
   const gwLabels = { duitnow: 'DuitNow QR Payment', ampersandpay: 'AmpersandPay QR Payment', ecpi: 'Card Payment' };
-  const gwLabel = gwLabels[c.activeGateway] || 'QR Payment';
+  const gwLabel = gwLabels[activeGateway] || 'QR Payment';
   document.getElementById('gatewayLabel').textContent = gwLabel;
-  document.getElementById('profileName').textContent = gwLabel;
-}).catch(() => {});
+  document.getElementById('profileName').textContent = currentGwInfo.profile;
+  // Populate credential strip
+  const info = currentGwInfo;
+  document.getElementById('cs-gw').textContent = gwLabel;
+  document.getElementById('cs-profile').textContent = info.profile;
+  document.getElementById('cs-mid').textContent = info.merchantId || '(not set)';
+  document.getElementById('cs-key').textContent = info.secretKey || '(not set)';
+  document.getElementById('cs-url').textContent = info.apiUrl || '(not set)';
+  document.getElementById('credStrip').style.display = 'block';
+}
+fetch('/api/config').then(r => r.json()).then(applyConfig).catch(() => {});
 let numpadRaw = '000'; // stores cents as integer string, e.g. "100" = RM 1.00
 
 // --- Audio: sounds ---
@@ -384,13 +401,7 @@ async function startPayment() {
   // Re-fetch config to get the latest active gateway before every payment
   try {
     const fresh = await fetch('/api/config').then(r => r.json());
-    activeGateway = fresh.activeGateway || activeGateway;
-    currentGwInfo = fresh.gwInfo || {};
-    currentGwInfo.profile = fresh.activeProfile || 'default';
-    const gwLabels = { duitnow: 'DuitNow QR Payment', ampersandpay: 'AmpersandPay QR Payment', ecpi: 'Card Payment' };
-    const gwLabel = gwLabels[activeGateway] || 'QR Payment';
-    document.getElementById('gatewayLabel').textContent = gwLabel;
-    document.getElementById('profileName').textContent = gwLabel;
+    applyConfig(fresh);
   } catch(e) { /* use existing activeGateway if fetch fails */ }
 
   const gateway = activeGateway;
