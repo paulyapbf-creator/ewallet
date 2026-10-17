@@ -3,119 +3,117 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Settings - Payment Gateway</title>
+<title>Admin - BKT Wallet</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 40px 16px; }
-  .container { width: 500px; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); overflow: hidden; }
-  .header { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; padding: 24px; text-align: center; }
-  .header h1 { font-size: 20px; font-weight: 600; }
-  .header p { font-size: 12px; opacity: 0.7; margin-top: 4px; }
-  .body { padding: 24px; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 24px 12px; }
+  .container { width: 560px; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); overflow: hidden; }
+  .header { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; padding: 20px 24px; text-align: center; }
+  .header h1 { font-size: 18px; font-weight: 700; }
+  .header p { font-size: 11px; opacity: 0.6; margin-top: 3px; }
+  .body { padding: 20px; }
 
-  .login-box { text-align: center; padding: 20px 0; }
-  .login-box h2 { font-size: 16px; color: #333; margin-bottom: 16px; }
+  /* Screens */
+  .screen { display: none; }
+  .screen.active { display: block; }
 
-  .section { margin-bottom: 20px; }
-  .section-title { font-size: 13px; font-weight: 700; color: #e31837; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; padding-bottom: 6px; border-bottom: 2px solid #fef2f2; }
-  .field { margin-bottom: 14px; }
-  .field label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 5px; }
-  .field input, .field select { width: 100%; padding: 11px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 14px; outline: none; transition: border 0.2s; }
+  /* Tabs */
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 18px; background: #f0f2f5; border-radius: 10px; padding: 4px; }
+  .tab-btn { flex: 1; padding: 9px 6px; border: none; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; background: transparent; color: #666; transition: all 0.2s; }
+  .tab-btn.active { background: #1a1a2e; color: #fff; }
+
+  /* Fields */
+  .field { margin-bottom: 13px; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: #555; margin-bottom: 4px; }
+  .field input, .field select, .field textarea { width: 100%; padding: 10px 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 13px; outline: none; transition: border 0.2s; font-family: inherit; }
   .field input:focus, .field select:focus { border-color: #1a1a2e; }
-  .field .hint { font-size: 11px; color: #999; margin-top: 4px; }
+  .field .hint { font-size: 10px; color: #aaa; margin-top: 3px; }
+  .field .readonly-url { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 8px 12px; font-size: 11px; font-family: monospace; color: #0369a1; word-break: break-all; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .field .readonly-url span { flex: 1; }
 
-  .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px; background: #f9f9f9; border-radius: 10px; margin-bottom: 14px; }
-  .toggle-row span { font-size: 14px; font-weight: 600; color: #333; }
-  .toggle { position: relative; width: 48px; height: 26px; cursor: pointer; }
-  .toggle input { display: none; }
-  .toggle .slider { position: absolute; inset: 0; background: #ccc; border-radius: 26px; transition: 0.3s; }
-  .toggle .slider:before { content: ''; position: absolute; width: 20px; height: 20px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
-  .toggle input:checked + .slider { background: #16a34a; }
-  .toggle input:checked + .slider:before { transform: translateX(22px); }
-
-  .btn { width: 100%; padding: 13px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-  .btn-save { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; }
-  .btn-save:hover { opacity: 0.9; }
-  .btn-test { background: #f0fdf4; color: #16a34a; border: 2px solid #16a34a; margin-top: 8px; }
+  /* Buttons */
+  .btn { width: 100%; padding: 12px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+  .btn-primary { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-danger { background: #fef2f2; color: #e31837; border: 2px solid #e31837; }
+  .btn-success { background: #f0fdf4; color: #16a34a; border: 2px solid #16a34a; }
   .btn-login { background: linear-gradient(135deg, #e31837, #c41230); color: #fff; }
-  .btn-back { background: #f5f5f5; color: #333; margin-top: 8px; }
+  .btn-sm { padding: 5px 12px; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+  .btn-sm-primary { background: #1a1a2e; color: #fff; }
+  .btn-sm-edit { background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; }
+  .btn-sm-del { background: #fef2f2; color: #e31837; border: 1px solid #fecaca; }
+  .btn-sm-load { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+  .copy-btn { background: none; border: 1px solid #bae6fd; border-radius: 4px; padding: 2px 8px; font-size: 10px; cursor: pointer; color: #0369a1; flex-shrink: 0; }
 
-  .msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 14px; display: none; }
+  /* Messages */
+  .msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; display: none; }
   .msg.show { display: block; }
   .msg-ok { background: #dcfce7; color: #16a34a; }
   .msg-err { background: #fef2f2; color: #e31837; }
 
-  .status-bar { display: flex; gap: 8px; margin-bottom: 16px; }
-  .status-chip { flex: 1; text-align: center; padding: 8px; border-radius: 8px; font-size: 12px; font-weight: 600; }
-  .chip-sandbox { background: #fef3c7; color: #d97706; }
+  /* Section */
+  .section-title { font-size: 11px; font-weight: 700; color: #e31837; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; padding-bottom: 5px; border-bottom: 2px solid #fef2f2; }
+  .divider { border: none; border-top: 1px solid #f0f0f0; margin: 14px 0; }
+
+  /* Profile table */
+  .profile-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .profile-table th { background: #1a1a2e; color: #fff; padding: 8px 8px; text-align: left; font-weight: 600; font-size: 11px; }
+  .profile-table td { padding: 9px 8px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  .profile-table tr:hover td { background: #f9f9f9; }
+  .active-row td { background: #f0fdf4 !important; }
+  .chip { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; }
   .chip-live { background: #dcfce7; color: #16a34a; }
-  .chip-off { background: #f5f5f5; color: #999; }
+  .chip-sandbox { background: #fef3c7; color: #d97706; }
+  .chip-active { background: #16a34a; color: #fff; }
+  .chip-gw-dn { background: #eff6ff; color: #2563eb; }
+  .chip-gw-ap { background: #fdf4ff; color: #9333ea; }
+  .chip-gw-ec { background: #fff7ed; color: #ea580c; }
 
-  .callback-url { background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px; padding: 10px; font-size: 12px; font-family: monospace; color: #0369a1; word-break: break-all; margin-bottom: 14px; }
-  .callback-url .label { font-family: -apple-system, sans-serif; font-weight: 600; font-size: 11px; color: #555; margin-bottom: 4px; }
-  .copy-btn { background: none; border: 1px solid #bae6fd; border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; color: #0369a1; margin-left: 6px; }
+  /* Profile detail card (Test tab) */
+  .detail-card { background: #f9f9f9; border-radius: 10px; padding: 14px; margin: 12px 0; }
+  .detail-row { display: flex; justify-content: space-between; padding: 5px 0; font-size: 12px; border-bottom: 1px solid #eee; }
+  .detail-row:last-child { border-bottom: none; }
+  .detail-row .lbl { color: #888; flex-shrink: 0; width: 110px; }
+  .detail-row .val { font-weight: 600; text-align: right; word-break: break-all; }
 
-  /* Launch buttons */
-  .launch-btn { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 16px 10px; border-radius: 10px; text-decoration: none; font-size: 14px; font-weight: 700; transition: all 0.2s; }
-  .launch-btn span { font-size: 11px; font-weight: 400; opacity: 0.8; margin-top: 4px; }
-  .launch-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-  .launch-wallet { background: linear-gradient(135deg, #e31837, #c41230); color: #fff; }
-  .launch-terminal { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; }
-
-  .screen { display: none; }
-  .screen.active { display: block; }
-
-  .tab-bar { display: flex; gap: 4px; margin-bottom: 20px; }
-  .tab-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; background: #f0f2f5; color: #555; transition: all 0.2s; }
-  .tab-btn.active { background: #1a1a2e; color: #fff; }
-
-  .summary-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+  /* Reports */
+  .summary-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
   .summary-card { background: #f9f9f9; border-radius: 10px; padding: 14px; text-align: center; }
   .summary-card .val { font-size: 22px; font-weight: 800; color: #1a1a2e; }
   .summary-card .lbl { font-size: 11px; color: #888; margin-top: 4px; }
   .summary-card.green .val { color: #16a34a; }
   .summary-card.red .val { color: #e31837; }
-
-  .filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-  .filter-row input, .filter-row select { padding: 8px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 12px; outline: none; flex: 1; min-width: 90px; }
-  .filter-row button { padding: 8px 14px; border: none; border-radius: 8px; background: #1a1a2e; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
-
-  .tx-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .tx-table th { background: #1a1a2e; color: #fff; padding: 8px 6px; text-align: left; font-weight: 600; }
-  .tx-table td { padding: 8px 6px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+  .filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .filter-row input, .filter-row select { padding: 7px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 12px; outline: none; flex: 1; min-width: 90px; }
+  .filter-row button { padding: 7px 14px; border: none; border-radius: 8px; background: #1a1a2e; color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
+  .tx-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .tx-table th { background: #1a1a2e; color: #fff; padding: 7px 5px; text-align: left; font-weight: 600; }
+  .tx-table td { padding: 7px 5px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
   .tx-table tr:hover td { background: #f9f9f9; }
   .status-paid { color: #16a34a; font-weight: 700; }
   .status-cancelled { color: #e31837; font-weight: 700; }
   .status-pending { color: #d97706; font-weight: 700; }
-  .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 12px; color: #555; }
-  .pagination button { padding: 6px 14px; border: 2px solid #e0e0e0; border-radius: 8px; background: #fff; font-size: 12px; cursor: pointer; }
+  .pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 12px; color: #555; }
+  .pagination button { padding: 5px 12px; border: 2px solid #e0e0e0; border-radius: 8px; background: #fff; font-size: 12px; cursor: pointer; }
   .pagination button:disabled { opacity: 0.4; cursor: default; }
 
-  .gw-panel { display: none; }
-  .gw-panel.active { display: block; }
+  /* Form panel */
+  .form-panel { background: #f9f9f9; border-radius: 10px; padding: 16px; margin-top: 14px; border: 2px solid #e0e0e0; }
+  .form-panel.editing { border-color: #0369a1; background: #f0f9ff; }
+  .gw-fields { display: none; }
+  .gw-fields.active { display: block; }
+  .mode-badge { display: inline-block; padding: 4px 12px; border-radius: 8px; font-size: 12px; font-weight: 700; margin-top: 4px; }
 
-  .active-badge { display: inline-block; background: #16a34a; color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 8px; margin-left: 4px; }
-
-  .profile-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  .profile-table th { background: #1a1a2e; color: #fff; padding: 8px 6px; text-align: left; font-weight: 600; white-space: nowrap; }
-  .profile-table td { padding: 8px 6px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
-  .profile-table tr:hover td { background: #f9f9f9; }
-  .profile-table .active-row td { background: #f0fdf4; }
-  .profile-table .btn-sm { padding: 4px 10px; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; }
-  .btn-sm-load { background: #1a1a2e; color: #fff; }
-  .btn-sm-del { background: #fef2f2; color: #e31837; border: 1px solid #e31837; margin-left: 4px; }
-  .chip-sm { display: inline-block; padding: 2px 7px; border-radius: 8px; font-size: 10px; font-weight: 700; }
-  .chip-sm-live { background: #dcfce7; color: #16a34a; }
-  .chip-sm-sandbox { background: #fef3c7; color: #d97706; }
-  .chip-sm-active { background: #16a34a; color: #fff; }
+  /* Login */
+  .login-box { text-align: center; padding: 16px 0; }
+  .login-box h2 { font-size: 15px; color: #333; margin-bottom: 14px; }
 </style>
 </head>
 <body>
-
 <div class="container">
   <div class="header">
-    <h1>Admin Settings</h1>
-    <p>Payment Gateway Configuration</p>
+    <h1>BKT Wallet Admin</h1>
+    <p>Gateway Profile Management</p>
   </div>
   <div class="body">
 
@@ -124,242 +122,257 @@
       <div class="login-box">
         <h2>Enter Admin PIN</h2>
         <div class="field">
-          <input type="password" id="pinInput" placeholder="PIN" maxlength="10" style="text-align:center;font-size:24px;letter-spacing:8px" onkeydown="if(event.key==='Enter')doLogin()">
+          <input type="password" id="pinInput" placeholder="PIN" maxlength="10"
+            style="text-align:center;font-size:24px;letter-spacing:8px"
+            onkeydown="if(event.key==='Enter')doLogin()">
         </div>
         <div id="loginMsg" class="msg msg-err"></div>
-        <button class="btn btn-login" onclick="doLogin()" style="margin-top:12px">Login</button>
+        <button class="btn btn-login" onclick="doLogin()" style="margin-top:10px">Login</button>
       </div>
     </div>
 
-    <!-- SETTINGS -->
-    <div id="settingsScreen" class="screen">
+    <!-- MAIN -->
+    <div id="mainScreen" class="screen">
       <div class="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('settings')">Settings</button>
-        <button class="tab-btn" onclick="switchTab('profiles')">Profiles</button>
+        <button class="tab-btn active" onclick="switchTab('profiles')">Profiles</button>
+        <button class="tab-btn" onclick="switchTab('test')">Test</button>
+        <button class="tab-btn" onclick="switchTab('settings')">Settings</button>
         <button class="tab-btn" onclick="switchTab('reports')">Reports</button>
       </div>
-      <div id="tabSettings">
 
-      <!-- Profiles -->
-      <div class="section">
-        <div class="section-title">Profiles</div>
+      <!-- ── PROFILES TAB ── -->
+      <div id="tabProfiles" class="tab-content">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div class="section-title" style="margin:0;border:none">Saved Profiles</div>
+          <button class="btn-sm btn-sm-primary" onclick="openForm()">+ New Profile</button>
+        </div>
+
+        <div style="overflow-x:auto">
+          <table class="profile-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Gateway</th>
+                <th>Merchant ID</th>
+                <th>Mode</th>
+                <th style="text-align:center">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="profileTableBody">
+              <tr><td colspan="5" style="text-align:center;color:#888;padding:20px">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Profile Form Panel -->
+        <div id="profileForm" class="form-panel" style="display:none">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div class="section-title" style="margin:0;border:none" id="formTitle">New Profile</div>
+            <button onclick="closeForm()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#888">&#x2715;</button>
+          </div>
+
+          <div class="field">
+            <label>Profile Name</label>
+            <input type="text" id="fName" placeholder="e.g. Coherent Live">
+          </div>
+          <div class="field">
+            <label>Gateway</label>
+            <select id="fGateway" onchange="onGatewayChange(this.value)">
+              <option value="duitnow">J&C Pacific (DuitNow)</option>
+              <option value="ampersandpay">AmpersandPay</option>
+              <option value="ecpi">ECPI Terminal</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Terminal Code</label>
+            <input type="text" id="fTerminal" placeholder="e.g. POS-01">
+          </div>
+
+          <!-- DuitNow fields -->
+          <div id="gw-duitnow" class="gw-fields active">
+            <div class="field">
+              <label>Application Code</label>
+              <input type="text" id="fDnAppCode" placeholder="e.g. POS">
+              <div class="hint">Provided by J&C Pacific</div>
+            </div>
+            <div class="field">
+              <label>Merchant Code</label>
+              <input type="text" id="fDnMerchantCode" placeholder="e.g. RG001">
+            </div>
+            <div class="field">
+              <label>Secret Key</label>
+              <input type="password" id="fDnSecretKey" placeholder="HMAC secret key">
+            </div>
+            <div class="field">
+              <label>API URL</label>
+              <input type="url" id="fDnApiUrl" placeholder="https://walletzpayment..." oninput="updateMode()">
+              <div class="hint">Leave blank to use sandbox mock</div>
+            </div>
+            <div class="field">
+              <label>Callback URL <span style="font-weight:400;color:#aaa">(copy to J&C portal)</span></label>
+              <div class="readonly-url"><span id="fDnCallback">—</span><button class="copy-btn" onclick="copyText('fDnCallback')">Copy</button></div>
+            </div>
+          </div>
+
+          <!-- AmpersandPay fields -->
+          <div id="gw-ampersandpay" class="gw-fields">
+            <div class="field">
+              <label>Merchant ID</label>
+              <input type="text" id="fApMerchantId" placeholder="e.g. 91016470">
+              <div class="hint">Provided by AmpersandPay</div>
+            </div>
+            <div class="field">
+              <label>Secret Key</label>
+              <input type="password" id="fApSecretKey" placeholder="SHA512 secret key">
+            </div>
+            <div class="field">
+              <label>API URL</label>
+              <input type="url" id="fApApiUrl" placeholder="https://stg-ipg.ampersandpay.com" oninput="updateMode()">
+              <div class="hint">UAT: https://stg-ipg.ampersandpay.com &nbsp;|&nbsp; Live: https://ipg.ampersandpay.com</div>
+            </div>
+            <div class="field">
+              <label>Payment Channel</label>
+              <select id="fApChannel">
+                <option value="EW">E-Wallet (EW)</option>
+                <option value="CC">Credit Card (CC)</option>
+                <option value="OB">Online Banking / FPX (OB)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Callback URL <span style="font-weight:400;color:#aaa">(copy to AmpersandPay portal)</span></label>
+              <div class="readonly-url"><span id="fApCallback">—</span><button class="copy-btn" onclick="copyText('fApCallback')">Copy</button></div>
+            </div>
+          </div>
+
+          <!-- ECPI fields -->
+          <div id="gw-ecpi" class="gw-fields">
+            <div class="field">
+              <label>Terminal IP Address</label>
+              <input type="text" id="fEcpiHost" placeholder="e.g. 192.168.1.100" oninput="updateMode()">
+              <div class="hint">Use <b>localhost</b> for sandbox mock</div>
+            </div>
+            <div class="field">
+              <label>Port</label>
+              <input type="text" id="fEcpiPort" placeholder="5000" value="5000">
+            </div>
+            <div class="field">
+              <label>Transaction Timeout (ms)</label>
+              <input type="text" id="fEcpiTimeout" placeholder="60000" value="60000">
+            </div>
+            <div class="field">
+              <label>Checksum Mode</label>
+              <select id="fEcpiChecksumMode">
+                <option value="bcc">BCC (XOR)</option>
+                <option value="crc16">CRC16</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Mode</label>
+            <div id="modeDisplay" class="mode-badge chip chip-sandbox">SANDBOX</div>
+            <div class="hint">Auto-detected from API URL</div>
+          </div>
+
+          <div id="formMsg" class="msg"></div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn btn-primary" onclick="saveProfile()" style="flex:1" id="formSaveBtn">Save Profile</button>
+            <button class="btn btn-danger" onclick="closeForm()" style="width:100px;padding:12px">Cancel</button>
+          </div>
+        </div>
+
+        <div id="profilesMsg" class="msg" style="margin-top:10px"></div>
+      </div><!-- end tabProfiles -->
+
+      <!-- ── TEST TAB ── -->
+      <div id="tabTest" class="tab-content" style="display:none">
+        <div class="section-title">Select Profile to Test</div>
         <div class="field">
-          <select id="profileSelect" onchange="onProfileSelect(this.value)">
-            <option value="">-- Select Profile --</option>
+          <select id="testProfileSelect" onchange="onTestProfileSelect(this.value)">
+            <option value="">-- Select a Profile --</option>
           </select>
         </div>
-        <div style="display:flex;gap:6px">
-          <input type="text" id="newProfileName" placeholder="New profile name" style="flex:1;padding:8px;border:2px solid #e0e0e0;border-radius:8px;font-size:13px">
-          <button onclick="saveCurrentProfile()" style="padding:8px 16px;border:none;border-radius:8px;background:#1a1a2e;color:#fff;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">Save As</button>
-        </div>
-        <div style="display:flex;gap:6px;margin-top:8px">
-          <button id="updateProfileBtn" onclick="updateCurrentProfile()" style="display:none;flex:1;padding:10px;border:2px solid #0369a1;border-radius:8px;background:#f0f9ff;color:#0369a1;font-size:13px;font-weight:600;cursor:pointer">Update: <span id="updateProfileName"></span></button>
-          <button id="deleteProfileBtn" onclick="deleteCurrentProfile()" style="display:none;padding:10px 16px;border:2px solid #e31837;border-radius:8px;background:#fef2f2;color:#e31837;font-size:13px;font-weight:600;cursor:pointer">Delete</button>
-        </div>
-      </div>
 
-      <div class="status-bar">
-        <div class="status-chip" id="modeChip">-</div>
-        <div class="status-chip" id="activeChip">-</div>
-      </div>
+        <div id="testDetail" style="display:none">
+          <div class="detail-card">
+            <div class="detail-row"><span class="lbl">Profile</span><span class="val" id="td-name">—</span></div>
+            <div class="detail-row"><span class="lbl">Gateway</span><span class="val" id="td-gw">—</span></div>
+            <div class="detail-row"><span class="lbl">Mode</span><span class="val" id="td-mode">—</span></div>
+            <div class="detail-row"><span class="lbl">Terminal Code</span><span class="val" id="td-terminal">—</span></div>
+            <div class="detail-row"><span class="lbl">Merchant ID</span><span class="val" id="td-mid">—</span></div>
+            <div class="detail-row"><span class="lbl">Secret Key</span><span class="val" id="td-key" style="font-family:monospace">—</span></div>
+            <div class="detail-row"><span class="lbl">API URL</span><span class="val" id="td-url" style="font-size:10px">—</span></div>
+            <div class="detail-row"><span class="lbl">Callback URL</span><span class="val" id="td-callback" style="font-size:10px">—</span></div>
+          </div>
 
-      <!-- Active Gateway Selector -->
-      <div class="section">
-        <div class="section-title">Active Gateway</div>
+          <div id="testMsg" class="msg"></div>
+
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button class="btn btn-primary" onclick="activateTestProfile()">Activate This Profile</button>
+            <button class="btn btn-success" onclick="testSelectedProfile()">Test Signature / Connection</button>
+            <a id="btnLaunchPos" href="/" target="_blank" class="btn btn-primary" style="text-align:center;text-decoration:none;display:block">Launch POS Terminal</a>
+          </div>
+        </div>
+      </div><!-- end tabTest -->
+
+      <!-- ── SETTINGS TAB ── -->
+      <div id="tabSettings" class="tab-content" style="display:none">
+        <div class="section-title">General Settings</div>
         <div class="field">
-          <select id="activeGateway" onchange="switchGateway(this.value)">
-            <option value="duitnow">J&C Pacific</option>
+          <label>Active Gateway</label>
+          <select id="sActiveGateway">
+            <option value="duitnow">J&C Pacific (DuitNow)</option>
             <option value="ampersandpay">AmpersandPay</option>
             <option value="ecpi">ECPI Terminal</option>
           </select>
-          <div class="hint">Select which gateway the POS uses for payments</div>
         </div>
-      </div>
-
-      <!-- DuitNow Panel -->
-      <div id="panel-duitnow" class="gw-panel">
-        <div class="toggle-row">
-          <span>Enable J&C</span>
-          <label class="toggle"><input type="checkbox" id="duitnowEnabled"><div class="slider"></div></label>
-        </div>
-        <div class="field">
-          <label>Application Code</label>
-          <input type="text" id="duitnowAppCode" placeholder="e.g. POS">
-          <div class="hint">Provided by J&C</div>
-        </div>
-        <div class="field">
-          <label>Merchant Code</label>
-          <input type="text" id="duitnowMerchantCode" placeholder="e.g. RG001">
-        </div>
-        <div class="field">
-          <label>Secret Key</label>
-          <input type="password" id="duitnowSecretKey" placeholder="HMAC secret key">
-        </div>
-        <div class="field">
-          <label>API Endpoint URL</label>
-          <input type="url" id="duitnowApiUrl" placeholder="https://walletzpayment...">
-          <div class="hint">Leave blank for sandbox mock</div>
-        </div>
-        <div class="callback-url">
-          <div class="label">Callback URL for J&C <button class="copy-btn" onclick="copyUrl('duitnowCallback')">Copy</button></div>
-          <div id="duitnowCallback">-</div>
-        </div>
-      </div>
-
-      <!-- AmpersandPay Panel -->
-      <div id="panel-ampersandpay" class="gw-panel">
-        <div class="toggle-row">
-          <span>Enable AmpersandPay</span>
-          <label class="toggle"><input type="checkbox" id="ampersandpayEnabled"><div class="slider"></div></label>
-        </div>
-        <div class="field">
-          <label>Merchant ID</label>
-          <input type="text" id="ampersandpayMerchantId" placeholder="e.g. 12345678">
-          <div class="hint">Provided by AmpersandPay</div>
-        </div>
-        <div class="field">
-          <label>Secret Key</label>
-          <input type="password" id="ampersandpaySecretKey" placeholder="SHA512 secret key">
-        </div>
-        <div class="field">
-          <label>API Endpoint URL</label>
-          <input type="url" id="ampersandpayApiUrl" placeholder="https://stg-ipg.ampersandpay.com">
-          <div class="hint">UAT: https://stg-ipg.ampersandpay.com | PROD: https://ipg.ampersandpay.com</div>
-        </div>
-        <div class="field">
-          <label>Payment Channel</label>
-          <select id="ampersandpayChannel">
-            <option value="EW">E-Wallet (EW)</option>
-            <option value="CC">Credit Card (CC)</option>
-            <option value="OB">Online Banking / FPX (OB)</option>
-          </select>
-        </div>
-        <div class="callback-url">
-          <div class="label">Callback URL for AmpersandPay <button class="copy-btn" onclick="copyUrl('ampersandpayCallback')">Copy</button></div>
-          <div id="ampersandpayCallback">-</div>
-        </div>
-      </div>
-
-      <!-- ECPI Panel -->
-      <div id="panel-ecpi" class="gw-panel">
-        <div class="toggle-row">
-          <span>Enable ECPI Terminal</span>
-          <label class="toggle"><input type="checkbox" id="ecpiEnabled"><div class="slider"></div></label>
-        </div>
-        <div class="field">
-          <label>Terminal IP Address</label>
-          <input type="text" id="ecpiHost" placeholder="e.g. 192.168.1.100">
-          <div class="hint">Sandbox mock: localhost</div>
-        </div>
-        <div class="field">
-          <label>Port</label>
-          <input type="text" id="ecpiPort" placeholder="5000" value="5000">
-          <div class="hint">Default: 5000 | Sandbox mock: 5001</div>
-        </div>
-        <div class="field">
-          <label>Transaction Timeout (ms)</label>
-          <input type="text" id="ecpiTimeout" placeholder="60000" value="60000">
-          <div class="hint">How long to wait for card tap (max 60s)</div>
-        </div>
-        <div class="field">
-          <label>Checksum Mode</label>
-          <select id="ecpiChecksumMode">
-            <option value="bcc">BCC (XOR)</option>
-            <option value="crc16">CRC16</option>
-          </select>
-        </div>
-        <div class="hint" style="margin-top:8px">Save settings, then use Step 2 & 3 below to verify and test.</div>
-      </div>
-
-      <!-- Terminal & Security -->
-      <div class="section">
-        <div class="section-title">Terminal</div>
         <div class="field">
           <label>Terminal Code</label>
-          <input type="text" id="terminalCode" placeholder="POS-01">
+          <input type="text" id="sTerminalCode" placeholder="POS-01">
         </div>
         <div class="field">
           <label>Transaction Running No.</label>
-          <input type="number" id="txRunningNo" placeholder="1" min="1" step="1">
-          <div class="hint">Set the next transaction number (auto-increments after each payment)</div>
+          <input type="number" id="sTxRunningNo" placeholder="1" min="1">
+          <div class="hint">Auto-increments after each payment</div>
         </div>
-      </div>
-
-      <div class="section">
-        <div class="section-title">Security</div>
         <div class="field">
           <label>Admin PIN</label>
-          <input type="password" id="adminPin" placeholder="4-digit PIN" maxlength="10">
+          <input type="password" id="sAdminPin" placeholder="4–10 digit PIN" maxlength="10">
         </div>
-      </div>
 
-      <div id="actionMsg" class="msg"></div>
+        <div style="margin-top:6px;margin-bottom:14px">
+          <div class="section-title">App Update</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:#f9f9f9;border-radius:8px;margin-bottom:8px;font-size:13px">
+            <span style="color:#555">Server version</span><strong id="appCurrentVer">—</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:#f9f9f9;border-radius:8px;margin-bottom:8px;font-size:13px">
+            <span style="color:#555">Latest on GitHub</span><strong id="appLatestVer">—</strong>
+          </div>
+          <div id="appUpdateAvail" style="display:none;padding:9px;background:#fef2f2;border-radius:8px;margin-bottom:8px;font-size:13px;color:#e31837;font-weight:600">New version available!</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-success" onclick="checkAppUpdate()" id="btnCheckUpdate" style="font-size:13px;padding:10px">Check for Updates</button>
+            <a id="btnDownloadApk" href="#" style="display:none;flex:1;padding:10px;background:#e31837;color:#fff;border-radius:8px;font-size:13px;font-weight:600;text-align:center;text-decoration:none">Download APK</a>
+          </div>
+        </div>
 
-      <!-- Step 1: Save -->
-      <div class="section">
-        <div class="section-title">Step 1 — Save Settings</div>
-        <button class="btn btn-save" onclick="saveSettings()">Save Settings</button>
-      </div>
-
-      <!-- Step 2: Test Signature / Connection -->
-      <div class="section" id="step2Section">
-        <div class="section-title">Step 2 — Verify Configuration</div>
-        <div id="step2Wallet">
-          <button class="btn btn-test" id="testBtn" onclick="testConnection()">Test Signature</button>
-        </div>
-        <div id="step2Terminal" style="display:none">
-          <button class="btn btn-test" onclick="testECPI()" id="ecpiTestBtn" style="background:#f0f9ff;color:#1a1a2e;border-color:#1a1a2e">Test Terminal Connection</button>
-        </div>
-      </div>
-
-      <!-- App Update -->
-      <div class="section">
-        <div class="section-title">App Update</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#f9f9f9;border-radius:8px;margin-bottom:10px;font-size:13px">
-          <span style="color:#555">Installed version</span>
-          <strong id="appCurrentVer">-</strong>
-        </div>
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#f9f9f9;border-radius:8px;margin-bottom:12px;font-size:13px">
-          <span style="color:#555">Latest on GitHub</span>
-          <strong id="appLatestVer">-</strong>
-        </div>
-        <div id="appUpdateAvail" style="display:none;padding:10px;background:#fef2f2;border-radius:8px;margin-bottom:10px;font-size:13px;color:#e31837;font-weight:600">
-          New version available!
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-test" onclick="checkAppUpdate()" id="btnCheckUpdate" style="font-size:13px;padding:10px">Check for Updates</button>
-          <a id="btnDownloadApk" href="#" style="display:none;flex:1;padding:10px;background:#e31837;color:#fff;border-radius:10px;font-size:13px;font-weight:600;text-align:center;text-decoration:none">Download APK</a>
-        </div>
-        <button id="btnSetVersion" onclick="setCurrentVersion()" style="display:none;width:100%;margin-top:8px;padding:10px;border:2px solid #16a34a;border-radius:10px;background:#f0fdf4;color:#16a34a;font-size:13px;font-weight:600;cursor:pointer">Mark as Current Version</button>
-      </div>
-
-      <!-- Step 3: Launch Test -->
-      <div class="section" id="step3Section">
-        <div class="section-title">Step 3 — Run Test</div>
-        <div id="step3Wallet">
-          <a href="/" target="_blank" class="launch-btn launch-wallet" style="display:flex">QR / Online Payment<span>J&C, AmpersandPay</span></a>
-        </div>
-        <div id="step3Terminal" style="display:none">
-          <a href="/terminal" target="_blank" class="launch-btn launch-terminal" style="display:flex">Card Terminal<span>ECPI Terminal</span></a>
-        </div>
-      </div>
+        <div id="settingsMsg" class="msg"></div>
+        <button class="btn btn-primary" onclick="saveGeneralSettings()">Save Settings</button>
       </div><!-- end tabSettings -->
 
-      <!-- REPORTS TAB -->
-      <div id="tabReports" style="display:none">
+      <!-- ── REPORTS TAB ── -->
+      <div id="tabReports" class="tab-content" style="display:none">
         <div class="summary-cards">
-          <div class="summary-card green"><div class="val" id="rPaid">-</div><div class="lbl">Paid</div></div>
-          <div class="summary-card"><div class="val" id="rTotal">-</div><div class="lbl">Total Txns</div></div>
-          <div class="summary-card green"><div class="val" id="rAmount">-</div><div class="lbl">Total Amount (RM)</div></div>
-          <div class="summary-card red"><div class="val" id="rCancelled">-</div><div class="lbl">Cancelled</div></div>
+          <div class="summary-card green"><div class="val" id="rPaid">—</div><div class="lbl">Paid</div></div>
+          <div class="summary-card"><div class="val" id="rTotal">—</div><div class="lbl">Total Txns</div></div>
+          <div class="summary-card green"><div class="val" id="rAmount">—</div><div class="lbl">Total (RM)</div></div>
+          <div class="summary-card red"><div class="val" id="rCancelled">—</div><div class="lbl">Cancelled</div></div>
         </div>
-
         <div class="filter-row">
-          <input type="date" id="fFrom" placeholder="From">
-          <input type="date" id="fTo" placeholder="To">
+          <input type="date" id="fFrom">
+          <input type="date" id="fTo">
           <select id="fGateway">
             <option value="">All Gateways</option>
-            <option value="duitnow">J&C Pacific</option>
+            <option value="duitnow">J&C</option>
             <option value="ampersandpay">AmpersandPay</option>
             <option value="ecpi">ECPI</option>
           </select>
@@ -369,29 +382,18 @@
             <option value="pending">Pending</option>
             <option value="cancelled">Cancelled</option>
           </select>
-          <input type="text" id="fTerminal" placeholder="Terminal (e.g. POS-01)" style="min-width:130px">
-          <button onclick="loadSummary(); loadReport(0)">Filter</button>
+          <button onclick="loadSummary();loadReport(0)">Filter</button>
         </div>
-
         <div style="overflow-x:auto">
           <table class="tx-table">
             <thead>
-              <tr>
-                <th>Txn No</th>
-                <th>Date/Time</th>
-                <th>Reference No</th>
-                <th>Amount</th>
-                <th>Gateway</th>
-                <th>Terminal</th>
-                <th>Status</th>
-              </tr>
+              <tr><th>Txn</th><th>Date/Time</th><th>Reference</th><th>Amount</th><th>GW</th><th>Status</th></tr>
             </thead>
             <tbody id="txTableBody">
-              <tr><td colspan="7" style="text-align:center;color:#888;padding:20px">Loading...</td></tr>
+              <tr><td colspan="6" style="text-align:center;color:#888;padding:16px">Loading...</td></tr>
             </tbody>
           </table>
         </div>
-
         <div class="pagination">
           <button id="btnPrev" onclick="reportPage(-1)" disabled>&#8592; Prev</button>
           <span id="pageInfo"></span>
@@ -399,60 +401,43 @@
         </div>
       </div><!-- end tabReports -->
 
-      <!-- PROFILES TAB -->
-      <div id="tabProfilesTab" style="display:none">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-          <div style="font-size:13px;font-weight:700;color:#1a1a2e">Saved Profiles</div>
-          <button onclick="switchTab('settings')" style="padding:6px 14px;border:none;border-radius:8px;background:#1a1a2e;color:#fff;font-size:12px;font-weight:600;cursor:pointer">+ New / Edit</button>
-        </div>
-        <div style="overflow-x:auto">
-          <table class="profile-table" id="profileTable">
-            <thead>
-              <tr>
-                <th>Profile</th>
-                <th>Gateway</th>
-                <th>Merchant ID</th>
-                <th>Secret Key</th>
-                <th>API URL</th>
-                <th>Mode</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="profileTableBody">
-              <tr><td colspan="7" style="text-align:center;color:#888;padding:20px">Loading...</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div id="profileTableMsg" class="msg" style="margin-top:12px"></div>
-      </div><!-- end tabProfilesTab -->
-
-    </div><!-- end settingsScreen -->
+    </div><!-- end mainScreen -->
   </div>
 </div>
 
 <script>
 const API = location.origin;
 let authPin = '';
+let editingProfile = null;   // null = new, string = name being edited
+let allProfiles = {};        // name -> full profile data
+let currentActive = '';      // activeProfile name from settings
+let testProfile = null;      // full data of selected test profile
 
-function show(id) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-}
+// ── Helpers ──────────────────────────────────────────────────────────
+const GW_NAMES = { duitnow: 'J&C Pacific', ampersandpay: 'AmpersandPay', ecpi: 'ECPI' };
+const mask = v => v && v.length > 6 ? '••••••' + v.slice(-6) : v ? '••••' : '(not set)';
+const isLive = p => {
+  const gw = p.activeGateway;
+  if (gw === 'duitnow') return !!p.duitnowApiUrl;
+  if (gw === 'ampersandpay') return !!p.ampersandpayApiUrl;
+  if (gw === 'ecpi') return !!(p.ecpiHost && p.ecpiHost !== 'localhost');
+  return false;
+};
 
 function showMsg(id, msg, ok) {
   const el = document.getElementById(id);
   el.textContent = msg;
   el.className = 'msg show ' + (ok ? 'msg-ok' : 'msg-err');
-  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  setTimeout(() => el.classList.remove('show'), 6000);
+  setTimeout(() => el.classList.remove('show'), 5000);
 }
 
-function switchGateway(gw) {
-  document.querySelectorAll('.gw-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('panel-' + gw).classList.add('active');
-  updateSteps(gw === 'ecpi');
+function copyText(id) {
+  const txt = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(txt).catch(() => {});
+  alert('Copied!');
 }
 
+// ── Login ─────────────────────────────────────────────────────────────
 async function doLogin() {
   const pin = document.getElementById('pinInput').value;
   if (!pin) return;
@@ -461,440 +446,356 @@ async function doLogin() {
       headers: { 'x-admin-pin': pin }
     }).then(r => { if (r.status === 401) throw new Error('Wrong PIN'); return r.json(); });
     authPin = pin;
-    populateForm(res);
-    currentProfile = res.activeProfile || '';
-    loadProfiles();
-    showUpdateBtn();
-    show('settingsScreen');
+    currentActive = res.activeProfile || '';
+    populateSettingsForm(res);
+    await refreshProfiles();
+    populateTestDropdown();
+    setCallbackUrls();
+    document.getElementById('loginScreen').classList.remove('active');
+    document.getElementById('mainScreen').classList.add('active');
+    checkAppUpdate();
   } catch (e) {
     showMsg('loginMsg', e.message, false);
   }
 }
 
-function populateForm(s) {
-  // Active gateway
-  document.getElementById('activeGateway').value = s.activeGateway || 'duitnow';
-
-  // DuitNow
-  document.getElementById('duitnowEnabled').checked = s.duitnowEnabled || false;
-  document.getElementById('duitnowAppCode').value = s.duitnowAppCode || '';
-  document.getElementById('duitnowMerchantCode').value = s.duitnowMerchantCode || '';
-  document.getElementById('duitnowSecretKey').value = s.duitnowSecretKey || '';
-  document.getElementById('duitnowApiUrl').value = s.duitnowApiUrl || '';
-  document.getElementById('duitnowCallback').textContent = API + '/api/payment/duitnow/callback';
-
-  // AmpersandPay
-  document.getElementById('ampersandpayEnabled').checked = s.ampersandpayEnabled || false;
-  document.getElementById('ampersandpayMerchantId').value = s.ampersandpayMerchantId || '';
-  document.getElementById('ampersandpaySecretKey').value = s.ampersandpaySecretKey || '';
-  document.getElementById('ampersandpayApiUrl').value = s.ampersandpayApiUrl || '';
-  document.getElementById('ampersandpayChannel').value = s.ampersandpayChannel || 'EW';
-  document.getElementById('ampersandpayCallback').textContent = API + '/api/payment/ampersandpay/callback';
-
-  // ECPI
-  document.getElementById('ecpiEnabled').checked = s.ecpiEnabled || false;
-  document.getElementById('ecpiHost').value = s.ecpiHost || '';
-  document.getElementById('ecpiPort').value = s.ecpiPort || '5000';
-  document.getElementById('ecpiTimeout').value = s.ecpiTimeout || '60000';
-  document.getElementById('ecpiChecksumMode').value = s.ecpiChecksumMode || 'bcc';
-
-  // General
-  document.getElementById('terminalCode').value = s.terminalCode || 'POS-01';
-  document.getElementById('txRunningNo').value = s.txRunningNo || 1;
-  document.getElementById('adminPin').value = s.adminPin || '';
-
-  // Status chips
-  const active = s.activeGateway || 'duitnow';
-  const names = { duitnow: 'J&C Pacific', ampersandpay: 'AmpersandPay', ecpi: 'ECPI Terminal' };
-  document.getElementById('activeChip').textContent = 'Active: ' + (names[active] || active);
-  document.getElementById('activeChip').className = 'status-chip chip-live';
-
-  const isTerminal = active === 'ecpi';
-  const hasLiveUrl = active === 'duitnow' ? !!s.duitnowApiUrl : active === 'ampersandpay' ? !!s.ampersandpayApiUrl : !!s.ecpiHost;
-  const modeChip = document.getElementById('modeChip');
-  modeChip.textContent = hasLiveUrl ? 'LIVE' : 'SANDBOX';
-  modeChip.className = 'status-chip ' + (hasLiveUrl ? 'chip-live' : 'chip-sandbox');
-
-  updateSteps(isTerminal);
-
-  // Show only the active gateway's config panel
-  document.querySelectorAll('.gw-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('panel-' + active).classList.add('active');
+// ── Tabs ──────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+  document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).style.display = 'block';
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', b.textContent.toLowerCase().startsWith(tab));
+  });
+  if (tab === 'reports') { loadSummary(); loadReport(0); }
 }
 
-function updateSteps(isTerminal) {
-  document.getElementById('step2Wallet').style.display = isTerminal ? 'none' : 'block';
-  document.getElementById('step2Terminal').style.display = isTerminal ? 'block' : 'none';
-  document.getElementById('step3Wallet').style.display = isTerminal ? 'none' : 'block';
-  document.getElementById('step3Terminal').style.display = isTerminal ? 'block' : 'none';
+// ── Profiles ──────────────────────────────────────────────────────────
+async function refreshProfiles() {
+  try {
+    const res = await fetch(API + '/api/admin/profiles/all', { headers: { 'x-admin-pin': authPin } }).then(r => r.json());
+    allProfiles = res.profiles || {};
+    renderProfileTable();
+    populateTestDropdown();
+  } catch(e) {}
 }
 
-function gatherSettings() {
+function gwChipClass(gw) {
+  return gw === 'duitnow' ? 'chip-gw-dn' : gw === 'ampersandpay' ? 'chip-gw-ap' : 'chip-gw-ec';
+}
+
+function renderProfileTable() {
+  const body = document.getElementById('profileTableBody');
+  const names = Object.keys(allProfiles);
+  if (names.length === 0) {
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#888;padding:20px">No profiles yet. Click + New Profile to create one.</td></tr>';
+    return;
+  }
+  body.innerHTML = names.map(name => {
+    const p = allProfiles[name];
+    const gw = p.activeGateway || 'duitnow';
+    const mid = gw === 'duitnow' ? (p.duitnowMerchantCode || p.duitnowAppCode || '—') :
+                gw === 'ampersandpay' ? (p.ampersandpayMerchantId || '—') : (p.ecpiHost || '—');
+    const live = isLive(p);
+    const isAct = name === currentActive;
+    const safeName = name.replace(/'/g, "\\'");
+    return `<tr class="${isAct ? 'active-row' : ''}">
+      <td><b>${name}</b>${isAct ? ' <span class="chip chip-active">ACTIVE</span>' : ''}</td>
+      <td><span class="chip ${gwChipClass(gw)}">${GW_NAMES[gw] || gw}</span></td>
+      <td style="font-family:monospace;font-size:11px">${mid}</td>
+      <td><span class="chip ${live ? 'chip-live' : 'chip-sandbox'}">${live ? 'LIVE' : 'SANDBOX'}</span></td>
+      <td style="text-align:center;white-space:nowrap">
+        <button class="btn-sm btn-sm-load" onclick="activateProfile('${safeName}')">Activate</button>
+        <button class="btn-sm btn-sm-edit" onclick="editProfile('${safeName}')" style="margin:0 3px">Edit</button>
+        <button class="btn-sm btn-sm-del" onclick="deleteProfile('${safeName}')">Del</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openForm(prefill) {
+  editingProfile = null;
+  document.getElementById('formTitle').textContent = 'New Profile';
+  document.getElementById('fName').value = '';
+  document.getElementById('fName').disabled = false;
+  document.getElementById('fGateway').value = 'duitnow';
+  document.getElementById('fTerminal').value = '';
+  document.getElementById('fDnAppCode').value = '';
+  document.getElementById('fDnMerchantCode').value = '';
+  document.getElementById('fDnSecretKey').value = '';
+  document.getElementById('fDnApiUrl').value = '';
+  document.getElementById('fApMerchantId').value = '';
+  document.getElementById('fApSecretKey').value = '';
+  document.getElementById('fApApiUrl').value = '';
+  document.getElementById('fApChannel').value = 'EW';
+  document.getElementById('fEcpiHost').value = '';
+  document.getElementById('fEcpiPort').value = '5000';
+  document.getElementById('fEcpiTimeout').value = '60000';
+  document.getElementById('fEcpiChecksumMode').value = 'bcc';
+  if (prefill) {
+    Object.entries(prefill).forEach(([k, v]) => {
+      const el = document.getElementById(k);
+      if (el) { if (el.type === 'checkbox') el.checked = v; else el.value = v; }
+    });
+  }
+  onGatewayChange(document.getElementById('fGateway').value);
+  updateMode();
+  document.getElementById('profileForm').style.display = 'block';
+  document.getElementById('profileForm').classList.remove('editing');
+  document.getElementById('profileForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+function editProfile(name) {
+  const p = allProfiles[name];
+  if (!p) return;
+  editingProfile = name;
+  document.getElementById('formTitle').textContent = 'Edit: ' + name;
+  document.getElementById('fName').value = name;
+  document.getElementById('fName').disabled = true;
+  document.getElementById('fGateway').value = p.activeGateway || 'duitnow';
+  document.getElementById('fTerminal').value = p.terminalCode || '';
+  document.getElementById('fDnAppCode').value = p.duitnowAppCode || '';
+  document.getElementById('fDnMerchantCode').value = p.duitnowMerchantCode || '';
+  document.getElementById('fDnSecretKey').value = p.duitnowSecretKey || '';
+  document.getElementById('fDnApiUrl').value = p.duitnowApiUrl || '';
+  document.getElementById('fApMerchantId').value = p.ampersandpayMerchantId || '';
+  document.getElementById('fApSecretKey').value = p.ampersandpaySecretKey || '';
+  document.getElementById('fApApiUrl').value = p.ampersandpayApiUrl || '';
+  document.getElementById('fApChannel').value = p.ampersandpayChannel || 'EW';
+  document.getElementById('fEcpiHost').value = p.ecpiHost || '';
+  document.getElementById('fEcpiPort').value = p.ecpiPort || '5000';
+  document.getElementById('fEcpiTimeout').value = p.ecpiTimeout || '60000';
+  document.getElementById('fEcpiChecksumMode').value = p.ecpiChecksumMode || 'bcc';
+  onGatewayChange(p.activeGateway || 'duitnow');
+  updateMode();
+  document.getElementById('profileForm').style.display = 'block';
+  document.getElementById('profileForm').classList.add('editing');
+  document.getElementById('profileForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+function closeForm() {
+  document.getElementById('profileForm').style.display = 'none';
+  editingProfile = null;
+}
+
+function onGatewayChange(gw) {
+  document.querySelectorAll('.gw-fields').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById('gw-' + gw);
+  if (el) el.classList.add('active');
+  updateMode();
+}
+
+function updateMode() {
+  const gw = document.getElementById('fGateway').value;
+  let live = false;
+  if (gw === 'duitnow') live = !!document.getElementById('fDnApiUrl').value.trim();
+  else if (gw === 'ampersandpay') live = !!document.getElementById('fApApiUrl').value.trim();
+  else if (gw === 'ecpi') {
+    const h = document.getElementById('fEcpiHost').value.trim();
+    live = !!(h && h !== 'localhost');
+  }
+  const d = document.getElementById('modeDisplay');
+  d.textContent = live ? 'LIVE' : 'SANDBOX';
+  d.className = 'mode-badge chip ' + (live ? 'chip-live' : 'chip-sandbox');
+}
+
+function setCallbackUrls() {
+  const base = location.origin;
+  document.getElementById('fDnCallback').textContent = base + '/api/payment/duitnow/callback';
+  document.getElementById('fApCallback').textContent = base + '/api/payment/ampersandpay/callback';
+}
+
+function gatherProfileData() {
+  const gw = document.getElementById('fGateway').value;
   return {
-    activeGateway: document.getElementById('activeGateway').value,
-    duitnowEnabled: document.getElementById('duitnowEnabled').checked,
-    duitnowAppCode: document.getElementById('duitnowAppCode').value.trim(),
-    duitnowMerchantCode: document.getElementById('duitnowMerchantCode').value.trim(),
-    duitnowSecretKey: document.getElementById('duitnowSecretKey').value.trim(),
-    duitnowApiUrl: document.getElementById('duitnowApiUrl').value.trim(),
-    ampersandpayEnabled: document.getElementById('ampersandpayEnabled').checked,
-    ampersandpayMerchantId: document.getElementById('ampersandpayMerchantId').value.trim(),
-    ampersandpaySecretKey: document.getElementById('ampersandpaySecretKey').value.trim(),
-    ampersandpayApiUrl: document.getElementById('ampersandpayApiUrl').value.trim(),
-    ampersandpayChannel: document.getElementById('ampersandpayChannel').value,
-    ecpiEnabled: document.getElementById('ecpiEnabled').checked,
-    ecpiHost: document.getElementById('ecpiHost').value.trim(),
-    ecpiPort: document.getElementById('ecpiPort').value.trim(),
-    ecpiTimeout: document.getElementById('ecpiTimeout').value.trim(),
-    ecpiChecksumMode: document.getElementById('ecpiChecksumMode').value,
-    terminalCode: document.getElementById('terminalCode').value.trim(),
-    txRunningNo: parseInt(document.getElementById('txRunningNo').value) || 1,
-    adminPin: document.getElementById('adminPin').value.trim()
+    activeGateway: gw,
+    terminalCode: document.getElementById('fTerminal').value.trim(),
+    duitnowAppCode: document.getElementById('fDnAppCode').value.trim(),
+    duitnowMerchantCode: document.getElementById('fDnMerchantCode').value.trim(),
+    duitnowSecretKey: document.getElementById('fDnSecretKey').value.trim(),
+    duitnowApiUrl: document.getElementById('fDnApiUrl').value.trim(),
+    duitnowEnabled: gw === 'duitnow',
+    ampersandpayMerchantId: document.getElementById('fApMerchantId').value.trim(),
+    ampersandpaySecretKey: document.getElementById('fApSecretKey').value.trim(),
+    ampersandpayApiUrl: document.getElementById('fApApiUrl').value.trim(),
+    ampersandpayChannel: document.getElementById('fApChannel').value,
+    ampersandpayEnabled: gw === 'ampersandpay',
+    ecpiHost: document.getElementById('fEcpiHost').value.trim(),
+    ecpiPort: document.getElementById('fEcpiPort').value.trim(),
+    ecpiTimeout: document.getElementById('fEcpiTimeout').value.trim(),
+    ecpiChecksumMode: document.getElementById('fEcpiChecksumMode').value,
+    ecpiEnabled: gw === 'ecpi'
   };
 }
 
-async function saveSettings() {
+async function saveProfile() {
+  const name = editingProfile || document.getElementById('fName').value.trim();
+  if (!name) { showMsg('formMsg', 'Enter a profile name', false); return; }
+  const data = gatherProfileData();
   try {
-    const res = await fetch(API + '/api/admin/settings', {
-      method: 'PUT',
+    await fetch(API + '/api/admin/profiles/' + encodeURIComponent(name), {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
-      body: JSON.stringify(gatherSettings())
+      body: JSON.stringify(data)
     }).then(r => { if (!r.ok) throw new Error('Save failed'); return r.json(); });
-    populateForm(res);
-    showMsg('actionMsg', 'Settings saved!', true);
-  } catch (e) {
-    showMsg('actionMsg', e.message, false);
+    await refreshProfiles();
+    closeForm();
+    showMsg('profilesMsg', 'Profile "' + name + '" saved!', true);
+  } catch(e) {
+    showMsg('formMsg', e.message, false);
   }
 }
 
-async function testConnection() {
-  const btn = document.getElementById('testBtn');
-  const active = document.getElementById('activeGateway').value;
+async function activateProfile(name) {
+  try {
+    const res = await fetch(API + '/api/admin/profiles/' + encodeURIComponent(name) + '/load', {
+      headers: { 'x-admin-pin': authPin }
+    }).then(r => { if (!r.ok) throw new Error('Failed to activate'); return r.json(); });
+    currentActive = name;
+    populateSettingsForm(res);
+    renderProfileTable();
+    showMsg('profilesMsg', 'Profile "' + name + '" is now active!', true);
+  } catch(e) {
+    showMsg('profilesMsg', e.message, false);
+  }
+}
+
+async function deleteProfile(name) {
+  if (!confirm('Delete profile "' + name + '"?')) return;
+  try {
+    await fetch(API + '/api/admin/profiles/' + encodeURIComponent(name), {
+      method: 'DELETE', headers: { 'x-admin-pin': authPin }
+    });
+    if (currentActive === name) currentActive = '';
+    await refreshProfiles();
+    showMsg('profilesMsg', 'Profile "' + name + '" deleted.', true);
+  } catch(e) {
+    showMsg('profilesMsg', e.message, false);
+  }
+}
+
+// ── Test Tab ──────────────────────────────────────────────────────────
+function populateTestDropdown() {
+  const sel = document.getElementById('testProfileSelect');
+  const names = Object.keys(allProfiles);
+  sel.innerHTML = '<option value="">-- Select a Profile --</option>' +
+    names.map(n => `<option value="${n}"${n === currentActive ? ' selected' : ''}>${n}${n === currentActive ? ' ★' : ''}</option>`).join('');
+  if (currentActive && allProfiles[currentActive]) onTestProfileSelect(currentActive);
+}
+
+function onTestProfileSelect(name) {
+  if (!name || !allProfiles[name]) {
+    document.getElementById('testDetail').style.display = 'none';
+    return;
+  }
+  const p = allProfiles[name];
+  testProfile = { name, ...p };
+  const gw = p.activeGateway || 'duitnow';
+  const mid = gw === 'duitnow' ? (p.duitnowMerchantCode || p.duitnowAppCode || '—') :
+              gw === 'ampersandpay' ? (p.ampersandpayMerchantId || '—') : (p.ecpiHost || '—');
+  const key = gw === 'duitnow' ? p.duitnowSecretKey : gw === 'ampersandpay' ? p.ampersandpaySecretKey : '—';
+  const url = gw === 'duitnow' ? p.duitnowApiUrl : gw === 'ampersandpay' ? p.ampersandpayApiUrl : (p.ecpiHost || '');
+  const cb = location.origin + '/api/payment/' + gw + '/callback';
+  const live = isLive(p);
+
+  document.getElementById('td-name').textContent = name + (name === currentActive ? ' ★' : '');
+  document.getElementById('td-gw').textContent = GW_NAMES[gw] || gw;
+  document.getElementById('td-mode').innerHTML = `<span class="chip ${live ? 'chip-live' : 'chip-sandbox'}">${live ? 'LIVE' : 'SANDBOX'}</span>`;
+  document.getElementById('td-terminal').textContent = p.terminalCode || '—';
+  document.getElementById('td-mid').textContent = mid;
+  document.getElementById('td-key').textContent = mask(key);
+  document.getElementById('td-url').textContent = url || '(mock/sandbox)';
+  document.getElementById('td-callback').textContent = gw !== 'ecpi' ? cb : 'N/A';
+  document.getElementById('testDetail').style.display = 'block';
+}
+
+async function activateTestProfile() {
+  if (!testProfile) return;
+  await activateProfile(testProfile.name);
+  populateTestDropdown();
+  showMsg('testMsg', 'Profile "' + testProfile.name + '" activated!', true);
+}
+
+async function testSelectedProfile() {
+  if (!testProfile) return;
+  const btn = document.querySelector('#tabTest .btn-success');
   btn.textContent = 'Testing...';
   btn.disabled = true;
-
   try {
     const res = await fetch(API + '/api/admin/test-signature', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
-      body: JSON.stringify({ gateway: active, ...gatherSettings() })
+      body: JSON.stringify({ gateway: testProfile.activeGateway, ...testProfile })
     }).then(r => r.json());
-
-    if (res.success) {
-      showMsg('actionMsg', res.gateway + ' signature OK! Output: ' + res.signature.substring(0, 30) + '...', true);
-    } else {
-      showMsg('actionMsg', 'Test failed: ' + res.message, false);
-    }
-  } catch (e) {
-    showMsg('actionMsg', 'Test error: ' + e.message, false);
+    if (res.success) showMsg('testMsg', res.gateway + ' OK! Signature: ' + res.signature.substring(0, 24) + '...', true);
+    else showMsg('testMsg', 'Failed: ' + res.message, false);
+  } catch(e) {
+    showMsg('testMsg', 'Error: ' + e.message, false);
   }
-  btn.textContent = 'Test Active Gateway';
+  btn.textContent = 'Test Signature / Connection';
   btn.disabled = false;
 }
 
-async function testECPI() {
-  const btn = document.getElementById('ecpiTestBtn');
-  const host = document.getElementById('ecpiHost').value.trim();
-  const port = document.getElementById('ecpiPort').value.trim();
+// ── Settings Tab ──────────────────────────────────────────────────────
+function populateSettingsForm(s) {
+  document.getElementById('sActiveGateway').value = s.activeGateway || 'duitnow';
+  document.getElementById('sTerminalCode').value = s.terminalCode || 'POS-01';
+  document.getElementById('sTxRunningNo').value = s.txRunningNo || 1;
+  document.getElementById('sAdminPin').value = s.adminPin || '';
+}
 
-  if (!host) {
-    showMsg('actionMsg', 'Enter Terminal IP first', false);
-    return;
-  }
-
-  btn.textContent = 'Connecting...';
-  btn.disabled = true;
-
+async function saveGeneralSettings() {
   try {
-    // Connect
-    const conn = await fetch(API + '/api/terminal/connect', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
-      body: JSON.stringify({ host, port })
-    }).then(r => r.json());
-
-    if (!conn.success) throw new Error(conn.message);
-
-    btn.textContent = 'Sending Enable Reader...';
-
-    // Check status (sends Enable Reader)
-    const status = await fetch(API + '/api/terminal/status').then(r => r.json());
-
-    // Disconnect
-    await fetch(API + '/api/terminal/disconnect', { method: 'POST' });
-
-    showMsg('actionMsg', 'ECPI terminal connected! Host: ' + host + ':' + port, true);
-  } catch (e) {
-    showMsg('actionMsg', 'ECPI connection failed: ' + e.message, false);
-  }
-
-  btn.textContent = 'Test Connection';
-  btn.disabled = false;
-}
-
-function copyUrl(id) {
-  const url = document.getElementById(id).textContent;
-  navigator.clipboard.writeText(url).then(() => showMsg('actionMsg', 'URL copied!', true));
-}
-
-// --- Profiles ---
-let currentProfile = '';
-
-async function loadProfiles() {
-  try {
-    const res = await fetch(API + '/api/admin/profiles', {
-      headers: { 'x-admin-pin': authPin }
-    }).then(r => r.json());
-    renderProfiles(res.profiles || []);
-  } catch (e) {}
-}
-
-function renderProfiles(profiles) {
-  const sel = document.getElementById('profileSelect');
-  const gwNames = { duitnow: 'J&C', ampersandpay: 'Ampersand', ecpi: 'ECPI' };
-  sel.innerHTML = '<option value="">-- Select Profile --</option>' +
-    profiles.map(p => {
-      const gw = gwNames[p.activeGateway] || p.activeGateway;
-      const mode = (p.hasJC || p.hasAmpersand) ? 'Live' : 'Sandbox';
-      return '<option value="' + p.name.replace(/"/g, '&quot;') + '"' + (p.name === currentProfile ? ' selected' : '') + '>' + p.name.replace(/&/g, '&amp;') + ' (' + gw + ' / ' + mode + ')</option>';
-    }).join('');
-  showUpdateBtn();
-}
-
-async function saveCurrentProfile() {
-  let name = document.getElementById('newProfileName').value.trim();
-  if (!name) {
-    showMsg('actionMsg', 'Enter a profile name', false);
-    return;
-  }
-  try {
-    const data = gatherSettings();
-    const res = await fetch(API + '/api/admin/profiles/' + encodeURIComponent(name), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
-      body: JSON.stringify(data)
-    }).then(r => r.json());
-    currentProfile = name;
-    renderProfiles(res.profiles || []);
-    showUpdateBtn();
-    document.getElementById('newProfileName').value = '';
-    showMsg('actionMsg', 'Profile "' + name + '" saved!', true);
-  } catch (e) {
-    showMsg('actionMsg', 'Save profile failed: ' + e.message, false);
-  }
-}
-
-function onProfileSelect(name) {
-  if (name) loadProfileByName(name);
-}
-
-async function loadProfileByName(name) {
-  try {
-    const res = await fetch(API + '/api/admin/profiles/' + encodeURIComponent(name) + '/load', {
-      headers: { 'x-admin-pin': authPin }
-    }).then(r => { if (!r.ok) throw new Error('Profile not found'); return r.json(); });
-    currentProfile = name;
-    populateForm(res);
-    loadProfiles();
-    showUpdateBtn();
-    showMsg('actionMsg', 'Profile "' + name + '" loaded!', true);
-  } catch (e) {
-    showMsg('actionMsg', e.message, false);
-  }
-}
-
-function showUpdateBtn() {
-  const btn = document.getElementById('updateProfileBtn');
-  const del = document.getElementById('deleteProfileBtn');
-  if (currentProfile) {
-    btn.style.display = 'block';
-    del.style.display = 'block';
-    document.getElementById('updateProfileName').textContent = currentProfile;
-  } else {
-    btn.style.display = 'none';
-    del.style.display = 'none';
-  }
-}
-
-async function updateCurrentProfile() {
-  if (!currentProfile) return;
-  try {
-    const data = gatherSettings();
-    const res = await fetch(API + '/api/admin/profiles/' + encodeURIComponent(currentProfile), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
-      body: JSON.stringify(data)
-    }).then(r => r.json());
-    // Also save to active settings
-    await fetch(API + '/api/admin/settings', {
+    const data = {
+      activeGateway: document.getElementById('sActiveGateway').value,
+      terminalCode: document.getElementById('sTerminalCode').value.trim(),
+      txRunningNo: parseInt(document.getElementById('sTxRunningNo').value) || 1,
+      adminPin: document.getElementById('sAdminPin').value.trim()
+    };
+    const res = await fetch(API + '/api/admin/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
       body: JSON.stringify(data)
-    });
-    renderProfiles(res.profiles || []);
-    showMsg('actionMsg', 'Profile "' + currentProfile + '" updated!', true);
-  } catch (e) {
-    showMsg('actionMsg', 'Update failed: ' + e.message, false);
+    }).then(r => { if (!r.ok) throw new Error('Save failed'); return r.json(); });
+    showMsg('settingsMsg', 'Settings saved!', true);
+  } catch(e) {
+    showMsg('settingsMsg', e.message, false);
   }
 }
 
-function deleteCurrentProfile() {
-  if (currentProfile) deleteProfileByName(currentProfile);
-}
-
-async function deleteProfileByName(name) {
-  if (!confirm('Delete profile "' + name + '"?')) return;
-  try {
-    const res = await fetch(API + '/api/admin/profiles/' + encodeURIComponent(name), {
-      method: 'DELETE',
-      headers: { 'x-admin-pin': authPin }
-    }).then(r => r.json());
-    if (currentProfile === name) currentProfile = '';
-    renderProfiles(res.profiles || []);
-    showMsg('actionMsg', 'Profile "' + name + '" deleted', true);
-  } catch (e) {
-    showMsg('actionMsg', e.message, false);
-  }
-}
-
-// --- App Update ---
-let latestApkVersion = '';
+// ── App Update ────────────────────────────────────────────────────────
 let latestApkUrl = '';
-
 async function checkAppUpdate() {
-  const btn = document.getElementById('btnCheckUpdate');
-  btn.textContent = 'Checking...';
-  btn.disabled = true;
   try {
     const info = await fetch(API + '/api/version').then(r => r.json());
     document.getElementById('appCurrentVer').textContent = 'v' + info.version;
-
     const rel = await fetch('https://api.github.com/repos/' + info.githubRepo + '/releases/latest').then(r => r.json());
-    latestApkVersion = rel.tag_name || '';
-    document.getElementById('appLatestVer').textContent = latestApkVersion || 'N/A';
-
-    const apkAsset = rel.assets && rel.assets.find(a => a.name.endsWith('.apk'));
-    latestApkUrl = apkAsset ? apkAsset.browser_download_url : (rel.html_url || '');
-
-    function parseVer(v) { return v.replace(/^v/, '').split('.').map(Number); }
-    function isNewer(a, b) {
-      const [a1,a2,a3] = parseVer(a), [b1,b2,b3] = parseVer(b);
-      if (a1 !== b1) return a1 > b1;
-      if (a2 !== b2) return a2 > b2;
-      return a3 > b3;
-    }
-
-    const hasUpdate = latestApkVersion && isNewer(latestApkVersion, info.version);
-    document.getElementById('appUpdateAvail').style.display = hasUpdate ? 'block' : 'none';
-    const dlBtn = document.getElementById('btnDownloadApk');
-    if (latestApkUrl) { dlBtn.href = latestApkUrl; dlBtn.style.display = 'block'; }
-    document.getElementById('btnSetVersion').style.display = latestApkVersion ? 'block' : 'none';
-
-    showMsg('actionMsg', hasUpdate ? 'Update available: ' + latestApkVersion : 'Already on latest version.', !hasUpdate);
-  } catch (e) {
-    showMsg('actionMsg', 'Update check failed: ' + e.message, false);
-  }
-  btn.textContent = 'Check for Updates';
-  btn.disabled = false;
+    const latest = rel.tag_name || '';
+    document.getElementById('appLatestVer').textContent = latest || 'N/A';
+    const apk = rel.assets && rel.assets.find(a => a.name.endsWith('.apk'));
+    latestApkUrl = apk ? apk.browser_download_url : rel.html_url || '';
+    function parseVer(v) { return v.replace(/^v/,'').split('.').map(Number); }
+    const [a1,a2,a3] = parseVer(latest), [b1,b2,b3] = parseVer(info.version);
+    const newer = a1>b1||(a1===b1&&a2>b2)||(a1===b1&&a2===b2&&a3>b3);
+    document.getElementById('appUpdateAvail').style.display = newer ? 'block' : 'none';
+    const dl = document.getElementById('btnDownloadApk');
+    if (latestApkUrl) { dl.href = latestApkUrl; dl.style.display = 'block'; }
+  } catch(e) {}
 }
 
-async function setCurrentVersion() {
-  if (!latestApkVersion) return;
-  const ver = latestApkVersion.replace(/^v/, '');
-  try {
-    await fetch(API + '/api/admin/version', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
-      body: JSON.stringify({ version: ver })
-    }).then(r => r.json());
-    document.getElementById('appCurrentVer').textContent = 'v' + ver;
-    document.getElementById('appUpdateAvail').style.display = 'none';
-    showMsg('actionMsg', 'Version marked as ' + ver, true);
-  } catch (e) {
-    showMsg('actionMsg', 'Failed: ' + e.message, false);
-  }
-}
-
-// --- Reports ---
+// ── Reports ───────────────────────────────────────────────────────────
 let reportOffset = 0;
 const REPORT_LIMIT = 20;
 let reportTotal = 0;
 
-function switchTab(tab) {
-  document.getElementById('tabSettings').style.display = tab === 'settings' ? '' : 'none';
-  document.getElementById('tabProfilesTab').style.display = tab === 'profiles' ? '' : 'none';
-  document.getElementById('tabReports').style.display = tab === 'reports' ? '' : 'none';
-  const tabs = ['settings', 'profiles', 'reports'];
-  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', tabs[i] === tab));
-  if (tab === 'reports') { loadSummary(); loadReport(0); }
-  if (tab === 'profiles') { loadProfileTable(); }
-}
-
-async function loadProfileTable() {
-  try {
-    const res = await fetch(API + '/api/admin/profiles', { headers: { 'x-admin-pin': authPin } }).then(r => r.json());
-    const profiles = res.profiles || [];
-    const gwNames = { duitnow: 'J&C Pacific', ampersandpay: 'AmpersandPay', ecpi: 'ECPI' };
-    const mask = v => v && v.length > 6 ? '••••••' + v.slice(-6) : v ? '••••••' : '—';
-    const shortUrl = v => v ? v.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : '(mock)';
-
-    // We need full profile data — fetch each or use a full-data endpoint
-    // For now fetch full profiles.json via a dedicated endpoint
-    const full = await fetch(API + '/api/admin/profiles/all', { headers: { 'x-admin-pin': authPin } }).then(r => r.json()).catch(() => null);
-    const fullMap = full && full.profiles ? full.profiles : {};
-
-    const body = document.getElementById('profileTableBody');
-    if (profiles.length === 0) {
-      body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888;padding:20px">No profiles saved</td></tr>';
-      return;
-    }
-    body.innerHTML = profiles.map(p => {
-      const fd = fullMap[p.name] || {};
-      const gw = p.activeGateway || 'duitnow';
-      const merchantId = gw === 'duitnow' ? (fd.duitnowMerchantCode || fd.duitnowAppCode || '—') : gw === 'ampersandpay' ? (fd.ampersandpayMerchantId || '—') : '—';
-      const secretKey = gw === 'duitnow' ? mask(fd.duitnowSecretKey) : gw === 'ampersandpay' ? mask(fd.ampersandpaySecretKey) : '—';
-      const apiUrl = gw === 'duitnow' ? shortUrl(fd.duitnowApiUrl) : gw === 'ampersandpay' ? shortUrl(fd.ampersandpayApiUrl) : (fd.ecpiHost || '—');
-      const isLive = (gw === 'duitnow' && fd.duitnowApiUrl) || (gw === 'ampersandpay' && fd.ampersandpayApiUrl) || (gw === 'ecpi' && fd.ecpiHost && fd.ecpiHost !== 'localhost');
-      const isActive = p.name === currentProfile;
-      return `<tr class="${isActive ? 'active-row' : ''}">
-        <td><b>${p.name}</b>${isActive ? ' <span class="chip-sm chip-sm-active">ACTIVE</span>' : ''}</td>
-        <td>${gwNames[gw] || gw}</td>
-        <td style="font-family:monospace">${merchantId}</td>
-        <td style="font-family:monospace">${secretKey}</td>
-        <td style="font-size:10px;color:#555">${apiUrl}</td>
-        <td><span class="chip-sm ${isLive ? 'chip-sm-live' : 'chip-sm-sandbox'}">${isLive ? 'LIVE' : 'SANDBOX'}</span></td>
-        <td style="white-space:nowrap">
-          <button class="btn-sm btn-sm-load" onclick="loadProfileFromTable('${p.name.replace(/'/g,"\\'")}')">Load</button>
-          <button class="btn-sm btn-sm-del" onclick="deleteProfileFromTable('${p.name.replace(/'/g,"\\'")}')">Del</button>
-        </td>
-      </tr>`;
-    }).join('');
-  } catch(e) {
-    document.getElementById('profileTableBody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:#e31837">Error loading profiles</td></tr>';
-  }
-}
-
-async function loadProfileFromTable(name) {
-  await loadProfileByName(name);
-  switchTab('settings');
-}
-
-async function deleteProfileFromTable(name) {
-  await deleteProfileByName(name);
-  loadProfileTable();
-}
-
 async function loadSummary() {
   try {
-    const from     = document.getElementById('fFrom').value;
-    const to       = document.getElementById('fTo').value;
-    const gw       = document.getElementById('fGateway').value;
-    const terminal = document.getElementById('fTerminal').value.trim();
     const params = new URLSearchParams();
-    if (from)     params.append('from', from);
-    if (to)       params.append('to', to);
-    if (gw)       params.append('gateway', gw);
-    if (terminal) params.append('terminal', terminal);
+    const from = document.getElementById('fFrom').value;
+    const to = document.getElementById('fTo').value;
+    const gw = document.getElementById('fGateway').value;
+    if (from) params.append('from', from);
+    if (to) params.append('to', to);
+    if (gw) params.append('gateway', gw);
     const s = await fetch(API + '/api/admin/transactions/summary?' + params, { headers: { 'x-admin-pin': authPin } }).then(r => r.json());
     document.getElementById('rPaid').textContent = s.paid || 0;
     document.getElementById('rTotal').textContent = s.total || 0;
@@ -905,43 +806,36 @@ async function loadSummary() {
 
 async function loadReport(offset) {
   if (offset !== undefined) reportOffset = offset;
-  const from     = document.getElementById('fFrom').value;
-  const to       = document.getElementById('fTo').value;
-  const gw       = document.getElementById('fGateway').value;
-  const st       = document.getElementById('fStatus').value;
-  const terminal = document.getElementById('fTerminal').value.trim();
   const params = new URLSearchParams({ limit: REPORT_LIMIT, offset: reportOffset });
-  if (from)     params.append('from', from);
-  if (to)       params.append('to', to);
-  if (gw)       params.append('gateway', gw);
-  if (st)       params.append('status', st);
-  if (terminal) params.append('terminal', terminal);
+  const from = document.getElementById('fFrom').value;
+  const to = document.getElementById('fTo').value;
+  const gw = document.getElementById('fGateway').value;
+  const st = document.getElementById('fStatus').value;
+  if (from) params.append('from', from);
+  if (to) params.append('to', to);
+  if (gw) params.append('gateway', gw);
+  if (st) params.append('status', st);
   try {
     const r = await fetch(API + '/api/admin/transactions?' + params, { headers: { 'x-admin-pin': authPin } }).then(r => r.json());
     reportTotal = r.total || 0;
-    const gwNames = { duitnow: 'J&C', ampersandpay: 'Ampersand', ecpi: 'ECPI' };
+    const gwN = { duitnow: 'J&C', ampersandpay: 'AP', ecpi: 'ECPI' };
     const body = document.getElementById('txTableBody');
-    if (!r.rows || r.rows.length === 0) {
-      body.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#888;padding:20px">No transactions found</td></tr>';
-    } else {
-      body.innerHTML = r.rows.map(t => `
-        <tr>
+    body.innerHTML = (!r.rows || !r.rows.length)
+      ? '<tr><td colspan="6" style="text-align:center;color:#888;padding:16px">No transactions</td></tr>'
+      : r.rows.map(t => `<tr>
           <td>${t.txRunningNo ? String(t.txRunningNo).padStart(6,'0') : '-'}</td>
-          <td style="white-space:nowrap">${t.createdAt || '-'}</td>
-          <td style="font-family:monospace;font-size:10px">${t.referenceNo || '-'}</td>
+          <td style="white-space:nowrap;font-size:10px">${t.createdAt || '-'}</td>
+          <td style="font-family:monospace;font-size:9px">${(t.referenceNo||'-').slice(0,18)}</td>
           <td style="font-weight:700">RM ${parseFloat(t.amount||0).toFixed(2)}</td>
-          <td>${gwNames[t.gateway] || t.gateway || '-'}</td>
-          <td>${t.terminalCode || '-'}</td>
+          <td>${gwN[t.gateway]||t.gateway||'-'}</td>
           <td class="status-${t.status}">${(t.status||'').toUpperCase()}</td>
         </tr>`).join('');
-    }
-    const from_ = reportOffset + 1;
-    const to_   = Math.min(reportOffset + REPORT_LIMIT, reportTotal);
-    document.getElementById('pageInfo').textContent = reportTotal ? `${from_}–${to_} of ${reportTotal}` : '0 records';
+    const f = reportOffset + 1, t2 = Math.min(reportOffset + REPORT_LIMIT, reportTotal);
+    document.getElementById('pageInfo').textContent = reportTotal ? `${f}–${t2} of ${reportTotal}` : '0 records';
     document.getElementById('btnPrev').disabled = reportOffset === 0;
     document.getElementById('btnNext').disabled = reportOffset + REPORT_LIMIT >= reportTotal;
   } catch(e) {
-    document.getElementById('txTableBody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:#e31837">Error loading data</td></tr>';
+    document.getElementById('txTableBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:#e31837">Error</td></tr>';
   }
 }
 
@@ -951,13 +845,6 @@ function reportPage(dir) {
   reportOffset = next;
   loadReport();
 }
-
-// Load version on admin login
-const _origShow = show;
-show = function(id) {
-  _origShow(id);
-  if (id === 'settingsScreen') checkAppUpdate();
-};
 
 document.getElementById('pinInput').focus();
 </script>
