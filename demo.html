@@ -210,7 +210,7 @@
 </div>
 
 <script>
-let currentRef = '', currentExtRef = '', resolved = false;
+let currentRef = '', currentExtRef = '', currentTerminal = '', resolved = false;
 let activeGateway = 'duitnow';
 let txRunningNo = 1;
 let currentGwInfo = {};
@@ -406,6 +406,7 @@ async function startPayment() {
   const gateway = activeGateway;
   const referenceNo = generateRef();
   currentRef = referenceNo;
+  currentTerminal = terminalCode;
   resolved = false;
 
   document.getElementById('log').innerHTML = '';
@@ -447,11 +448,8 @@ async function startPayment() {
     show('qrScreen');
     log('QR displayed — waiting for customer', 'warn');
 
-    // Webhook primary with polling fallback
-    log('Listening for webhook callback...', 'ws');
-    setTimeout(() => {
-      if (!resolved) { log('Starting poll fallback...', 'warn'); startPolling(referenceNo, terminalCode, gateway); }
-    }, 15000);
+    // Webhook primary — polling starts only when Simulate is tapped
+    log('Tap "Simulate Customer Payment" to test, or wait for real payment...', 'ws');
   } catch (err) {
     playError();
     log('Error: ' + err.message, 'err');
@@ -490,7 +488,8 @@ async function simulatePay() {
       body: JSON.stringify({ referenceNo: currentRef })
     });
   }
-  log('Customer payment sent!', 'ok');
+  log('Customer payment sent! Starting poll...', 'ok');
+  if (!resolved) startPolling(currentRef, currentTerminal, gateway);
 }
 
 async function cancelPayment() {
