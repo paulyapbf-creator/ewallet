@@ -977,7 +977,12 @@ async function qrCreate() {
       body: JSON.stringify({ amount, referenceNo: qrRef, terminalCode: p.terminalCode || 'ADMIN-TEST', txRunningNo: 0 })
     }).then(r => r.json());
 
-    if (!res.success && !res.checkoutUrl) throw new Error(res.message || 'Create failed');
+    if (!res.success && !res.checkoutUrl) {
+      const raw = res.raw || {};
+      const detail = raw.ret ? ' (ret=' + raw.ret + ')' : '';
+      const extra = raw.msg && raw.msg !== res.message ? ' | ' + JSON.stringify(raw) : '';
+      throw new Error((res.message || 'Create failed') + detail + extra);
+    }
     qrExtRef = res.externalRefNo || '';
     qrLog('Created: ' + (res.externalRefNo || res.message), 'ok');
 

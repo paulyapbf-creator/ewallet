@@ -54,7 +54,7 @@ class AmpersandPayGateway extends BaseGateway {
       amount: parseFloat(amount),
       provider: this.provider,
       serviceName: channel || 'EW',
-      message: raw.msg || '',
+      message: (raw.msg || '') + (raw.ret !== undefined && !this._isSuccess(raw.ret) ? ' [ret=' + raw.ret + ']' : ''),
       checkoutUrl: raw.checkoutUrl || '',
       qrCode: raw.qrCode || '',
       raw
