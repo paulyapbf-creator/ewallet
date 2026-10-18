@@ -71,18 +71,29 @@ app.get('/api/admin/profiles/all', requirePin, (req, res) => {
 });
 
 app.post('/api/admin/profiles/:name', requirePin, (req, res) => {
-  const current = settings.load();
-  const merged = { ...current, ...req.body };
-  settings.saveProfile(req.params.name, merged);
-  console.log('[ADMIN] Profile saved: ' + req.params.name + ' | apiUrl=' + merged.ampersandpayApiUrl + ' ch=' + merged.ampersandpayChannel);
+  // Only save fields for the profile's own gateway — never store other gateways' credentials in a profile
+  const gw = req.body.activeGateway || 'duitnow';
+  const otherPrefixes = ['duitnow', 'ampersandpay', 'ecpi'].filter(p => p !== gw);
+  const safeBody = Object.fromEntries(
+    Object.entries(req.body).filter(([k]) => !otherPrefixes.some(p => k.startsWith(p)))
+  );
+  settings.saveProfile(req.params.name, safeBody);
+  console.log('[ADMIN] Profile saved: ' + req.params.name + ' (gateway=' + gw + ') | apiUrl=' + safeBody.ampersandpayApiUrl);
   res.json({ success: true, profiles: settings.listProfiles() });
 });
 
 app.get('/api/admin/profiles/:name/load', requirePin, (req, res) => {
   const profile = settings.loadProfile(req.params.name);
   if (!profile) return res.status(404).json({ error: 'Profile not found' });
-  const saved = settings.save(profile);
-  console.log(`[ADMIN] Profile loaded: ${req.params.name}`);
+  // Only apply fields for the profile's own gateway + general fields.
+  // Prevents activating an AmpersandPay profile from wiping DuitNow credentials.
+  const gw = profile.activeGateway || 'duitnow';
+  const otherPrefixes = ['duitnow', 'ampersandpay', 'ecpi'].filter(p => p !== gw);
+  const safeProfile = Object.fromEntries(
+    Object.entries(profile).filter(([k]) => !otherPrefixes.some(p => k.startsWith(p)))
+  );
+  const saved = settings.save(safeProfile);
+  console.log('[ADMIN] Profile loaded: ' + req.params.name + ' (gateway=' + gw + ')');
   res.json(saved);
 });
 
