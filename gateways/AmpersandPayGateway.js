@@ -30,7 +30,7 @@ class AmpersandPayGateway extends BaseGateway {
   }
 
   // --- Create Transaction (Checkout) ---
-  async createTransaction({ amount, referenceNo, terminalCode, channel, custName, custEmail }) {
+  async createTransaction({ amount, referenceNo, terminalCode, channel, custName, custEmail, callbackUrl, returnUrl }) {
     const body = {
       merchantId: this.config.merchantId,
       terminalId: this.config.terminalId || undefined,
@@ -42,7 +42,9 @@ class AmpersandPayGateway extends BaseGateway {
       orderId: referenceNo,
       orderRef: referenceNo,
       custName: custName || 'Customer',
-      custEmail: custEmail || ''
+      custEmail: custEmail || '',
+      callbackUrl: callbackUrl || this.config.callbackUrl || undefined,
+      returnUrl: returnUrl || this.config.returnUrl || undefined
     };
 
     const raw = await this._post('/tx/request', body);

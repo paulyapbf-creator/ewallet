@@ -278,7 +278,9 @@ const store = {
       ampersandpaySecretKey: s.ampersandpaySecretKey || '',
       ampersandpayApiUrl: s.ampersandpayApiUrl || `${BASE_URL}/mock/ampersandpay`,
       ampersandpayChannel: s.ampersandpayChannel || 'EW',
-      ampersandpayScheme: s.ampersandpayScheme || ''
+      ampersandpayScheme: s.ampersandpayScheme || '',
+      ampersandpayCallbackUrl: s.ampersandpayCallbackUrl || '',
+      ampersandpayReturnUrl: s.ampersandpayReturnUrl || ''
     };
   }
 };
