@@ -72,8 +72,9 @@ app.get('/api/admin/profiles/all', requirePin, (req, res) => {
 
 app.post('/api/admin/profiles/:name', requirePin, (req, res) => {
   const current = settings.load();
-  settings.saveProfile(req.params.name, { ...current, ...req.body });
-  console.log(`[ADMIN] Profile saved: ${req.params.name}`);
+  const merged = { ...current, ...req.body };
+  settings.saveProfile(req.params.name, merged);
+  console.log('[ADMIN] Profile saved: ' + req.params.name + ' | apiUrl=' + merged.ampersandpayApiUrl + ' ch=' + merged.ampersandpayChannel);
   res.json({ success: true, profiles: settings.listProfiles() });
 });
 
