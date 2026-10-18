@@ -37,7 +37,7 @@ class AmpersandPayGateway extends BaseGateway {
       txType: 'SALE',
       txAmount: parseFloat(amount).toFixed(2),
       txCurrency: 'MYR',
-      txChannel: channel || 'EW',
+      txChannel: channel || this.config.channel || undefined,
       orderId: referenceNo,
       orderRef: referenceNo,
       custName: custName || 'Customer',

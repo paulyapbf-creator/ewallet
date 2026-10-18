@@ -30,6 +30,7 @@ function createPaymentRouter(store, options = {}) {
       return {
         merchantId: s.ampersandpayMerchantId,
         terminalId: s.ampersandpayTerminalId || '',
+        channel: s.ampersandpayChannel || '',
         secretKey: s.ampersandpaySecretKey,
         apiBaseUrl: s.ampersandpayApiUrl
       };
@@ -78,7 +79,7 @@ function createPaymentRouter(store, options = {}) {
 
       // Use tenant's terminalCode if not provided in request
       const termCode = terminalCode || s.terminalCode;
-      const result = await gateway.createTransaction({ amount, referenceNo, terminalCode: termCode });
+      const result = await gateway.createTransaction({ amount, referenceNo, terminalCode: termCode, channel: config.channel });
 
       // Save to DB
       if (onTransactionCreate) {
