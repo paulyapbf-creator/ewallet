@@ -277,7 +277,8 @@ const store = {
       ampersandpayTerminalId: s.ampersandpayTerminalId || '',
       ampersandpaySecretKey: s.ampersandpaySecretKey || '',
       ampersandpayApiUrl: s.ampersandpayApiUrl || `${BASE_URL}/mock/ampersandpay`,
-      ampersandpayChannel: s.ampersandpayChannel || 'EW'
+      ampersandpayChannel: s.ampersandpayChannel || 'EW',
+      ampersandpayScheme: s.ampersandpayScheme || ''
     };
   }
 };

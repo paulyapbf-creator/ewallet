@@ -31,6 +31,7 @@ function createPaymentRouter(store, options = {}) {
         merchantId: s.ampersandpayMerchantId,
         terminalId: s.ampersandpayTerminalId || '',
         channel: s.ampersandpayChannel || '',
+        scheme: s.ampersandpayScheme || '',
         secretKey: s.ampersandpaySecretKey,
         apiBaseUrl: s.ampersandpayApiUrl
       };

@@ -38,6 +38,7 @@ class AmpersandPayGateway extends BaseGateway {
       txAmount: parseFloat(amount).toFixed(2),
       txCurrency: 'MYR',
       txChannel: channel || this.config.channel || undefined,
+      txScheme: this.config.scheme || undefined,
       orderId: referenceNo,
       orderRef: referenceNo,
       custName: custName || 'Customer',

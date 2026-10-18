@@ -238,16 +238,30 @@
             </div>
             <div class="field">
               <label>Payment Channel</label>
-              <input type="text" id="fApChannel" list="apChannelList" placeholder="e.g. DUITNOW_QR, EW, CC, OB">
+              <input type="text" id="fApChannel" list="apChannelList" placeholder="e.g. EW, CC, DD">
               <datalist id="apChannelList">
-                <option value="DUITNOW_QR">
                 <option value="EW">
                 <option value="CC">
-                <option value="OB">
-                <option value="QR">
-                <option value="MAYBANK_QR">
+                <option value="DD">
               </datalist>
-              <div class="hint">Enter the exact channel code from your AmpersandPay merchant account</div>
+              <div class="hint">EW = E-Wallet &nbsp;|&nbsp; CC = Credit Card &nbsp;|&nbsp; DD = Online Banking/FPX</div>
+            </div>
+            <div class="field">
+              <label>Payment Scheme <span style="font-weight:400;color:#aaa">(optional)</span></label>
+              <input type="text" id="fApScheme" list="apSchemeList" placeholder="e.g. S92 for TnG, leave blank for universal">
+              <datalist id="apSchemeList">
+                <option value="">Universal (all wallets)</option>
+                <option value="S21">S21 – FPX Online Banking</option>
+                <option value="S22">S22 – DuitNow Online Banking</option>
+                <option value="S92">S92 – Touch n Go</option>
+                <option value="S93">S93 – Boost</option>
+                <option value="S94">S94 – GrabPay</option>
+                <option value="S95">S95 – MAE</option>
+                <option value="S96">S96 – ShopeePay</option>
+                <option value="S97">S97 – Alipay</option>
+                <option value="S98">S98 – WechatPay</option>
+              </datalist>
+              <div class="hint">CC: S01 Visa/Master, S02 Visa, S03 Master &nbsp;|&nbsp; EW: S92-S98 wallets &nbsp;|&nbsp; DD: S21 FPX, S22 DuitNow</div>
             </div>
             <div class="field">
               <label>Callback URL <span style="font-weight:400;color:#aaa">(copy to AmpersandPay portal)</span></label>
@@ -587,6 +601,7 @@ function openForm(prefill) {
   document.getElementById('fApSecretKey').value = '';
   document.getElementById('fApApiUrl').value = '';
   document.getElementById('fApChannel').value = 'EW';
+  document.getElementById('fApScheme').value = '';
   document.getElementById('fEcpiHost').value = '';
   document.getElementById('fEcpiPort').value = '5000';
   document.getElementById('fEcpiTimeout').value = '60000';
@@ -622,6 +637,7 @@ function editProfile(name) {
   document.getElementById('fApSecretKey').value = p.ampersandpaySecretKey || '';
   document.getElementById('fApApiUrl').value = p.ampersandpayApiUrl || '';
   document.getElementById('fApChannel').value = p.ampersandpayChannel || 'EW';
+  document.getElementById('fApScheme').value = p.ampersandpayScheme || '';
   document.getElementById('fEcpiHost').value = p.ecpiHost || '';
   document.getElementById('fEcpiPort').value = p.ecpiPort || '5000';
   document.getElementById('fEcpiTimeout').value = p.ecpiTimeout || '60000';
@@ -680,6 +696,7 @@ function gatherProfileData() {
     ampersandpaySecretKey: document.getElementById('fApSecretKey').value.trim(),
     ampersandpayApiUrl: document.getElementById('fApApiUrl').value.trim(),
     ampersandpayChannel: document.getElementById('fApChannel').value,
+    ampersandpayScheme: document.getElementById('fApScheme').value.trim(),
     ampersandpayEnabled: gw === 'ampersandpay',
     ecpiHost: document.getElementById('fEcpiHost').value.trim(),
     ecpiPort: document.getElementById('fEcpiPort').value.trim(),
