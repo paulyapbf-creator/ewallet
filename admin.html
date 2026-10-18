@@ -238,11 +238,16 @@
             </div>
             <div class="field">
               <label>Payment Channel</label>
-              <select id="fApChannel">
-                <option value="EW">E-Wallet (EW)</option>
-                <option value="CC">Credit Card (CC)</option>
-                <option value="OB">Online Banking / FPX (OB)</option>
-              </select>
+              <input type="text" id="fApChannel" list="apChannelList" placeholder="e.g. DUITNOW_QR, EW, CC, OB">
+              <datalist id="apChannelList">
+                <option value="DUITNOW_QR">
+                <option value="EW">
+                <option value="CC">
+                <option value="OB">
+                <option value="QR">
+                <option value="MAYBANK_QR">
+              </datalist>
+              <div class="hint">Enter the exact channel code from your AmpersandPay merchant account</div>
             </div>
             <div class="field">
               <label>Callback URL <span style="font-weight:400;color:#aaa">(copy to AmpersandPay portal)</span></label>
