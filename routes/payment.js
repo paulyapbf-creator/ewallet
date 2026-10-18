@@ -114,14 +114,14 @@ function createPaymentRouter(store, options = {}) {
   // Poll transaction until final status
   router.post('/api/payment/:provider/poll', async (req, res) => {
     try {
-      const { tenantId, referenceNo, terminalCode, intervalMs, maxAttempts } = req.body;
+      const { tenantId, referenceNo, externalRefNo, terminalCode, intervalMs, maxAttempts } = req.body;
       const s = await loadTenantSettings(tenantId);
       const config = getGatewayConfig(s, req.params.provider);
       const gateway = getGateway(req.params.provider, config);
 
       const termCode = terminalCode || s.terminalCode;
       const result = await gateway.pollTransaction(
-        { referenceNo, terminalCode: termCode },
+        { referenceNo, externalRefNo, terminalCode: termCode },
         { intervalMs, maxAttempts }
       );
 
