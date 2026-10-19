@@ -107,6 +107,24 @@
   /* Login */
   .login-box { text-align: center; padding: 16px 0; }
   .login-box h2 { font-size: 15px; color: #333; margin-bottom: 14px; }
+
+  /* Calculator */
+  .calc-wrap { background: #1c1c1e; border-radius: 16px; padding: 16px 12px 12px; margin: -4px 0 0; }
+  .calc-display { text-align: right; padding: 8px 8px 4px; min-height: 90px; display: flex; flex-direction: column; justify-content: flex-end; }
+  .calc-expr { font-size: 16px; color: #888; min-height: 22px; word-break: break-all; margin-bottom: 2px; }
+  .calc-main { font-size: 44px; font-weight: 300; color: #fff; line-height: 1.1; word-break: break-all; }
+  .calc-main.result { color: #30d158; }
+  .calc-hint { font-size: 11px; color: #555; text-align: right; margin: 4px 8px 8px; }
+  .calc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+  .calc-btn { border: none; border-radius: 50px; font-size: 20px; font-weight: 400; cursor: pointer; padding: 0; height: 62px; display: flex; align-items: center; justify-content: center; transition: opacity 0.15s; -webkit-tap-highlight-color: transparent; }
+  .calc-btn:active { opacity: 0.6; }
+  .calc-btn.num { background: #2c2c2e; color: #fff; }
+  .calc-btn.op { background: #3a3a3c; color: #fff; }
+  .calc-btn.fn { background: #3a3a3c; color: #ff453a; font-weight: 600; }
+  .calc-btn.eq { background: #30d158; color: #fff; font-weight: 700; font-size: 24px; }
+  .calc-btn.eq.pay { background: #e31837; animation: pulse-eq 1s ease-in-out infinite; }
+  @keyframes pulse-eq { 0%,100%{opacity:1} 50%{opacity:0.75} }
+  .calc-qr { text-align: center; margin-top: 14px; padding-top: 14px; border-top: 1px solid #333; }
 </style>
 </head>
 <body>
@@ -138,6 +156,7 @@
         <button class="tab-btn" onclick="switchTab('test')">Test</button>
         <button class="tab-btn" onclick="switchTab('settings')">Settings</button>
         <button class="tab-btn" onclick="switchTab('qrtest')">QR Test</button>
+        <button class="tab-btn" onclick="switchTab('calc')">Calc</button>
         <button class="tab-btn" onclick="switchTab('reports')">Reports</button>
       </div>
 
@@ -436,6 +455,70 @@
         </div>
       </div><!-- end tabQrtest -->
 
+      <!-- ── CALC TAB ── -->
+      <div id="tabCalc" class="tab-content" style="display:none">
+        <div class="field" style="margin-bottom:10px">
+          <label>Profile</label>
+          <select id="calcProfileSelect" onchange="onCalcProfileChange(this.value)">
+            <option value="">-- Select Profile --</option>
+          </select>
+        </div>
+        <div id="calcMsg" class="msg"></div>
+
+        <div class="calc-wrap">
+          <div class="calc-display">
+            <div class="calc-expr" id="calcExprDisplay"></div>
+            <div class="calc-main" id="calcMainDisplay">0</div>
+          </div>
+          <div class="calc-hint" id="calcHint">Press <b>=</b> to calculate &nbsp;·&nbsp; Press <b>=</b> again to pay</div>
+
+          <div class="calc-grid">
+            <!-- Row 1 -->
+            <button class="calc-btn fn" onclick="calcBtn('C')">C</button>
+            <button class="calc-btn op" onclick="calcBtn('⌫')">⌫</button>
+            <button class="calc-btn op" onclick="calcBtn('%')">%</button>
+            <button class="calc-btn op" onclick="calcBtn('÷')">÷</button>
+            <!-- Row 2 -->
+            <button class="calc-btn num" onclick="calcBtn('7')">7</button>
+            <button class="calc-btn num" onclick="calcBtn('8')">8</button>
+            <button class="calc-btn num" onclick="calcBtn('9')">9</button>
+            <button class="calc-btn op" onclick="calcBtn('×')">×</button>
+            <!-- Row 3 -->
+            <button class="calc-btn num" onclick="calcBtn('4')">4</button>
+            <button class="calc-btn num" onclick="calcBtn('5')">5</button>
+            <button class="calc-btn num" onclick="calcBtn('6')">6</button>
+            <button class="calc-btn op" onclick="calcBtn('-')">−</button>
+            <!-- Row 4 -->
+            <button class="calc-btn num" onclick="calcBtn('1')">1</button>
+            <button class="calc-btn num" onclick="calcBtn('2')">2</button>
+            <button class="calc-btn num" onclick="calcBtn('3')">3</button>
+            <button class="calc-btn op" onclick="calcBtn('+')">+</button>
+            <!-- Row 5 -->
+            <button class="calc-btn op" onclick="calcBtn('()')">( )</button>
+            <button class="calc-btn num" onclick="calcBtn('0')">0</button>
+            <button class="calc-btn num" onclick="calcBtn('.')">.</button>
+            <button class="calc-btn eq" id="calcEqBtn" onclick="calcBtn('=')">=</button>
+          </div>
+
+          <!-- QR display (shown after second =) -->
+          <div class="calc-qr" id="calcQrArea" style="display:none">
+            <div style="font-size:12px;color:#888;margin-bottom:6px" id="calcQrRef"></div>
+            <img id="calcQrImage" src="" alt="QR" style="border:3px solid #30d158;border-radius:12px;padding:8px;background:#fff;max-width:200px">
+            <div id="calcQrTimer" style="font-size:15px;font-weight:700;color:#30d158;margin:8px 0">Expires in <span id="calcQrSec">60</span>s</div>
+            <div id="calcQrLog" style="background:#111;border-radius:8px;padding:8px;max-height:80px;overflow-y:auto;text-align:left;margin-bottom:8px"></div>
+            <button class="btn btn-danger" onclick="calcQrCancel()" style="margin-top:0">Cancel</button>
+          </div>
+
+          <!-- Result display (shown after QR resolves) -->
+          <div class="calc-qr" id="calcQrResult" style="display:none">
+            <div style="font-size:36px" id="calcQrResultIcon"></div>
+            <div style="font-size:16px;font-weight:700;margin:6px 0" id="calcQrResultTitle"></div>
+            <div style="font-size:12px;color:#888" id="calcQrResultMsg"></div>
+            <button class="btn btn-primary" onclick="calcReset()" style="margin-top:12px">New Calculation</button>
+          </div>
+        </div>
+      </div><!-- end tabCalc -->
+
       <!-- ── REPORTS TAB ── -->
       <div id="tabReports" class="tab-content" style="display:none">
         <div class="summary-cards">
@@ -546,6 +629,7 @@ function switchTab(tab) {
   });
   if (tab === 'reports') { loadSummary(); loadReport(0); }
   if (tab === 'qrtest') { populateQrTestDropdown(); }
+  if (tab === 'calc') { populateCalcDropdown(); }
 }
 
 // ── Profiles ──────────────────────────────────────────────────────────
@@ -1223,6 +1307,274 @@ function qrReset() {
 }
 
 document.getElementById('pinInput').focus();
+
+// ── Calculator Tab ─────────────────────────────────────────────────────
+let calcExpr = '';          // expression being built
+let calcResultReady = false; // true after first = is pressed
+let calcFinalValue = 0;      // evaluated result
+let calcQrResolved = false;
+let calcQrTimerHandle = null;
+let calcOpenParens = 0;
+
+function populateCalcDropdown() {
+  const sel = document.getElementById('calcProfileSelect');
+  const names = Object.keys(allProfiles);
+  sel.innerHTML = '<option value="">-- Select Profile --</option>' +
+    names.map(n => `<option value="${n}"${n === currentActive ? ' selected' : ''}>${n}${n === currentActive ? ' ★' : ''}</option>`).join('');
+  if (currentActive) sel.value = currentActive;
+}
+
+function onCalcProfileChange(name) {
+  // Reset QR area when profile changes
+  calcQrCancel(true);
+}
+
+function calcLog(msg, type) {
+  const el = document.getElementById('calcQrLog');
+  if (!el) return;
+  const color = type === 'ok' ? '#30d158' : type === 'err' ? '#ff453a' : '#ffd60a';
+  el.innerHTML += `<p style="font-size:10px;font-family:monospace;color:${color};margin:2px 0">[${new Date().toLocaleTimeString()}] ${msg}</p>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function calcUpdateDisplay() {
+  const mainEl = document.getElementById('calcMainDisplay');
+  const exprEl = document.getElementById('calcExprDisplay');
+  if (calcResultReady) {
+    mainEl.textContent = 'RM ' + calcFinalValue.toFixed(2);
+    mainEl.className = 'calc-main result';
+    exprEl.textContent = calcExpr + ' =';
+    document.getElementById('calcHint').innerHTML = 'Press <b style="color:#e31837">=</b> to generate QR payment';
+    document.getElementById('calcEqBtn').classList.add('pay');
+  } else {
+    mainEl.textContent = calcExpr || '0';
+    mainEl.className = 'calc-main';
+    exprEl.textContent = '';
+    document.getElementById('calcHint').innerHTML = 'Press <b>=</b> to calculate &nbsp;·&nbsp; Press <b>=</b> again to pay';
+    document.getElementById('calcEqBtn').classList.remove('pay');
+  }
+}
+
+function calcBtn(val) {
+  // If QR is showing, ignore all input except C
+  if (document.getElementById('calcQrArea').style.display !== 'none' ||
+      document.getElementById('calcQrResult').style.display !== 'none') {
+    if (val === 'C') calcReset();
+    return;
+  }
+
+  if (val === 'C') {
+    calcExpr = ''; calcResultReady = false; calcFinalValue = 0; calcOpenParens = 0;
+    calcUpdateDisplay(); return;
+  }
+
+  if (val === '⌫') {
+    if (calcResultReady) { calcExpr = ''; calcResultReady = false; calcUpdateDisplay(); return; }
+    const last = calcExpr.slice(-1);
+    if (last === '(') calcOpenParens--;
+    if (last === ')') calcOpenParens++;
+    calcExpr = calcExpr.slice(0, -1);
+    calcUpdateDisplay(); return;
+  }
+
+  if (val === '=') {
+    if (calcResultReady) {
+      // Second = → generate QR
+      const profileName = document.getElementById('calcProfileSelect').value;
+      if (!profileName) { showMsg('calcMsg', 'Select a profile first', false); return; }
+      if (calcFinalValue <= 0) { showMsg('calcMsg', 'Amount must be greater than 0', false); return; }
+      calcGenerateQR(profileName, calcFinalValue);
+      return;
+    }
+    if (!calcExpr) return;
+    try {
+      // Close any open parentheses
+      let expr = calcExpr + ')'.repeat(calcOpenParens);
+      expr = expr.replace(/×/g, '*').replace(/÷/g, '/');
+      // Handle % as /100 when not after operator
+      expr = expr.replace(/(\d+\.?\d*)%/g, '($1/100)');
+      const result = Function('"use strict"; return (' + expr + ')')();
+      if (!isFinite(result) || isNaN(result)) throw new Error('Invalid');
+      calcFinalValue = Math.round(result * 100) / 100;
+      calcResultReady = true;
+    } catch(e) {
+      document.getElementById('calcMainDisplay').textContent = 'Error';
+      document.getElementById('calcMainDisplay').className = 'calc-main';
+      document.getElementById('calcExprDisplay').textContent = calcExpr;
+      calcExpr = ''; calcOpenParens = 0;
+      return;
+    }
+    calcUpdateDisplay(); return;
+  }
+
+  // After result, if digit/dot pressed: start fresh; if operator: chain
+  if (calcResultReady) {
+    if (['+', '-', '×', '÷'].includes(val)) {
+      calcExpr = calcFinalValue.toString() + val;
+    } else {
+      calcExpr = '';
+      calcOpenParens = 0;
+    }
+    calcResultReady = false;
+  }
+
+  if (val === '()') {
+    // Smart parenthesis: open if no open, or last char is operator; else close
+    const last = calcExpr.slice(-1);
+    if (calcOpenParens === 0 || last === '(' || last === '+' || last === '-' || last === '×' || last === '÷' || last === '') {
+      calcExpr += '('; calcOpenParens++;
+    } else {
+      calcExpr += ')'; calcOpenParens--;
+    }
+  } else if (val === '%') {
+    calcExpr += '%';
+  } else {
+    // Prevent double dot
+    if (val === '.') {
+      const parts = calcExpr.split(/[\+\-\×\÷\(\)]/);
+      if (parts[parts.length - 1].includes('.')) return;
+    }
+    // Prevent leading zero (0x → x)
+    if (val !== '.' && calcExpr.match(/(^|[\+\-\×\÷\(])0$/)) {
+      calcExpr = calcExpr.slice(0, -1);
+    }
+    calcExpr += val;
+  }
+
+  calcUpdateDisplay();
+}
+
+async function calcGenerateQR(profileName, amount) {
+  const p = allProfiles[profileName];
+  if (!p) return;
+  const gw = p.activeGateway || 'duitnow';
+
+  // Activate profile
+  try {
+    await fetch(API + '/api/admin/profiles/' + encodeURIComponent(profileName) + '/load', {
+      headers: { 'x-admin-pin': authPin }
+    }).then(r => r.json());
+    currentActive = profileName;
+  } catch(e) { showMsg('calcMsg', 'Failed to activate profile: ' + e.message, false); return; }
+
+  const ref = 'CALC-' + Date.now() + '-' + Math.random().toString(36).slice(2,4).toUpperCase();
+  calcQrResolved = false;
+
+  document.getElementById('calcQrArea').style.display = 'block';
+  document.getElementById('calcQrResult').style.display = 'none';
+  document.getElementById('calcQrLog').innerHTML = '';
+  document.getElementById('calcQrRef').textContent = 'RM ' + amount.toFixed(2) + '  |  Ref: ' + ref;
+  document.getElementById('calcQrImage').src = '';
+
+  calcLog('Creating ' + gw + ' payment for RM ' + amount.toFixed(2) + '...', 'warn');
+
+  try {
+    const res = await fetch(API + '/api/payment/' + gw + '/create', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, referenceNo: ref, terminalCode: p.terminalCode || 'CALC-TEST', txRunningNo: 0 })
+    }).then(r => r.json());
+
+    if (!res.success && !res.checkoutUrl) {
+      const raw = res.raw || {};
+      throw new Error((res.message || 'Create failed') + (raw.ret ? ' (ret=' + raw.ret + ')' : ''));
+    }
+
+    let qrUrl = res.qrCode || (res.raw && res.raw.QRCode);
+    if (!qrUrl && res.raw && res.raw.Data) qrUrl = '/api/qr?data=' + encodeURIComponent(res.raw.Data);
+    if (!qrUrl && res.checkoutUrl) qrUrl = '/api/qr?data=' + encodeURIComponent(res.checkoutUrl);
+
+    document.getElementById('calcQrImage').src = qrUrl || '';
+    calcLog('QR ready — polling every 3s...', 'ok');
+
+    // Start timer + polling
+    calcStartTimer(60);
+    calcStartPolling(ref, res.externalRefNo || '', gw, p.terminalCode || 'CALC-TEST');
+  } catch(e) {
+    calcLog('Error: ' + e.message, 'err');
+    showMsg('calcMsg', e.message, false);
+    document.getElementById('calcQrArea').style.display = 'none';
+  }
+}
+
+function calcStartPolling(ref, extRef, gw, terminalCode) {
+  const maxAttempts = 20;
+  let attempt = 0;
+
+  async function doCheck() {
+    if (calcQrResolved) return;
+    if (attempt >= maxAttempts) {
+      if (!calcQrResolved) { calcQrResolved = true; calcStopTimer(); calcShowResult(false, 'Polling timeout'); }
+      return;
+    }
+    attempt++;
+    try {
+      const res = await fetch(API + '/api/payment/' + gw + '/check', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referenceNo: ref, externalRefNo: extRef, terminalCode })
+      }).then(r => r.json());
+      calcLog('Check #' + attempt + ': ' + (res.status || '?'), res.success ? 'ok' : 'warn');
+      if (res.success && !calcQrResolved) { calcQrResolved = true; calcStopTimer(); calcShowResult(true, 'RM ' + parseFloat(res.amount || 0).toFixed(2) + ' paid'); }
+      else if (!calcQrResolved && (res.status === 'failed' || res.status === 'error')) { calcQrResolved = true; calcStopTimer(); calcShowResult(false, res.message || 'Payment failed'); }
+      else if (!calcQrResolved) setTimeout(doCheck, 3000);
+    } catch(e) {
+      if (!calcQrResolved) { calcLog('Check error: ' + e.message, 'err'); setTimeout(doCheck, 3000); }
+    }
+  }
+  doCheck();
+}
+
+function calcStartTimer(seconds) {
+  calcStopTimer();
+  let remaining = seconds;
+  const secEl = document.getElementById('calcQrSec');
+  const labelEl = document.getElementById('calcQrTimer');
+
+  function tick() {
+    if (secEl) secEl.textContent = remaining;
+    const colour = remaining > 20 ? '#30d158' : remaining > 10 ? '#ffd60a' : '#ff453a';
+    if (labelEl) labelEl.style.color = colour;
+    if (remaining <= 0) {
+      calcStopTimer();
+      if (!calcQrResolved) { calcQrResolved = true; calcQrCancel(); }
+      return;
+    }
+    remaining--;
+    calcQrTimerHandle = setTimeout(tick, 1000);
+  }
+  tick();
+}
+
+function calcStopTimer() {
+  if (calcQrTimerHandle) { clearTimeout(calcQrTimerHandle); calcQrTimerHandle = null; }
+}
+
+function calcShowResult(success, msg) {
+  document.getElementById('calcQrArea').style.display = 'none';
+  const res = document.getElementById('calcQrResult');
+  res.style.display = 'block';
+  document.getElementById('calcQrResultIcon').textContent = success ? '✓' : '✗';
+  document.getElementById('calcQrResultIcon').style.color = success ? '#30d158' : '#ff453a';
+  document.getElementById('calcQrResultTitle').textContent = success ? 'Payment Successful' : 'Payment Failed';
+  document.getElementById('calcQrResultTitle').style.color = success ? '#30d158' : '#ff453a';
+  document.getElementById('calcQrResultMsg').textContent = msg || '';
+}
+
+async function calcQrCancel(silent) {
+  calcStopTimer();
+  calcQrResolved = true;
+  if (!silent) calcLog('Cancelled.', 'warn');
+  document.getElementById('calcQrArea').style.display = 'none';
+  if (!silent) calcShowResult(false, 'Cancelled by user');
+}
+
+function calcReset() {
+  calcStopTimer();
+  calcExpr = ''; calcResultReady = false; calcFinalValue = 0; calcQrResolved = false; calcOpenParens = 0;
+  document.getElementById('calcQrArea').style.display = 'none';
+  document.getElementById('calcQrResult').style.display = 'none';
+  document.getElementById('calcQrLog').innerHTML = '';
+  calcUpdateDisplay();
+}
 </script>
 </body>
 </html>
