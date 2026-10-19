@@ -1481,9 +1481,14 @@ async function calcGenerateQR(profileName, amount) {
 
     let qrUrl = res.qrCode || (res.raw && res.raw.QRCode);
     if (!qrUrl && res.raw && res.raw.Data) qrUrl = '/api/qr?data=' + encodeURIComponent(res.raw.Data);
+    if (!qrUrl && res.qrData) qrUrl = '/api/qr?data=' + encodeURIComponent(res.qrData);
     if (!qrUrl && res.checkoutUrl) qrUrl = '/api/qr?data=' + encodeURIComponent(res.checkoutUrl);
 
-    document.getElementById('calcQrImage').src = qrUrl || '';
+    calcLog('QR URL: ' + (qrUrl ? qrUrl.substring(0, 60) + '...' : 'EMPTY — no QR data in response'), qrUrl ? 'ok' : 'err');
+    const img = document.getElementById('calcQrImage');
+    img.onerror = () => calcLog('QR image load failed: ' + (qrUrl || 'no url'), 'err');
+    img.src = qrUrl || '';
+    img.style.display = qrUrl ? '' : 'none';
     calcLog('QR ready — polling every 3s...', 'ok');
 
     // Start timer + polling
