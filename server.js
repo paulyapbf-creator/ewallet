@@ -70,6 +70,35 @@ app.get('/api/admin/profiles/all', requirePin, (req, res) => {
   res.json({ profiles: settings.loadProfiles() });
 });
 
+// Export all profiles as downloadable JSON — MUST be before /:name route
+app.get('/api/admin/profiles/export', requirePin, (req, res) => {
+  const profiles = settings.loadProfiles();
+  const json = JSON.stringify(profiles, null, 2);
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Disposition', 'attachment; filename="profiles-backup.json"');
+  res.send(json);
+});
+
+// Import profiles from JSON — MUST be before /:name route
+app.post('/api/admin/profiles/import', requirePin, (req, res) => {
+  try {
+    const incoming = req.body;
+    if (typeof incoming !== 'object' || Array.isArray(incoming)) {
+      return res.status(400).json({ error: 'Expected a JSON object of profiles' });
+    }
+    const replace = req.query.replace === '1';
+    const existing = replace ? {} : settings.loadProfiles();
+    const fs = require('fs');
+    const path = require('path');
+    const merged = { ...existing, ...incoming };
+    fs.writeFileSync(path.join(__dirname, 'profiles.json'), JSON.stringify(merged, null, 2), 'utf8');
+    console.log(`[ADMIN] Profiles imported: ${Object.keys(incoming).join(', ')} (replace=${replace})`);
+    res.json({ success: true, count: Object.keys(merged).length, profiles: settings.listProfiles() });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/admin/profiles/:name', requirePin, (req, res) => {
   // Only save fields for the profile's own gateway — never store other gateways' credentials in a profile
   const gw = req.body.activeGateway || 'duitnow';
@@ -101,35 +130,6 @@ app.delete('/api/admin/profiles/:name', requirePin, (req, res) => {
   settings.deleteProfile(req.params.name);
   console.log(`[ADMIN] Profile deleted: ${req.params.name}`);
   res.json({ success: true, profiles: settings.listProfiles() });
-});
-
-// Export all profiles as downloadable JSON
-app.get('/api/admin/profiles/export', requirePin, (req, res) => {
-  const profiles = settings.loadProfiles();
-  const json = JSON.stringify(profiles, null, 2);
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Content-Disposition', 'attachment; filename="profiles-backup.json"');
-  res.send(json);
-});
-
-// Import profiles from JSON — merges with existing (use ?replace=1 to overwrite all)
-app.post('/api/admin/profiles/import', requirePin, (req, res) => {
-  try {
-    const incoming = req.body;
-    if (typeof incoming !== 'object' || Array.isArray(incoming)) {
-      return res.status(400).json({ error: 'Expected a JSON object of profiles' });
-    }
-    const replace = req.query.replace === '1';
-    const existing = replace ? {} : settings.loadProfiles();
-    const fs = require('fs');
-    const path = require('path');
-    const merged = { ...existing, ...incoming };
-    fs.writeFileSync(path.join(__dirname, 'profiles.json'), JSON.stringify(merged, null, 2), 'utf8');
-    console.log(`[ADMIN] Profiles imported: ${Object.keys(incoming).join(', ')} (replace=${replace})`);
-    res.json({ success: true, count: Object.keys(merged).length, profiles: settings.listProfiles() });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
 });
 
 app.post('/api/admin/test-signature', requirePin, (req, res) => {
