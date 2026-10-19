@@ -365,8 +365,8 @@ function log(msg, type = '') {
 function showSuccess(data, method) {
   clearQrTimer();
   show('successScreen');
-  const cls = method === 'webhook' ? 'method-webhook' : 'method-poll';
-  const label = method === 'webhook' ? 'Confirmed via Webhook' : 'Confirmed via Polling';
+  const cls = method === 'webhook' ? 'method-webhook' : method === 'simulate' ? 'method-poll' : 'method-poll';
+  const label = method === 'webhook' ? 'Confirmed via Webhook' : method === 'simulate' ? 'Simulated Payment' : 'Confirmed via Polling';
   document.getElementById('confirmedBy').innerHTML = '<span class="method-tag ' + cls + '">' + label + '</span>';
   document.getElementById('receipt').innerHTML =
     '<div class="receipt-row"><span>Status</span><span style="color:#16a34a">PAID</span></div>' +
@@ -556,20 +556,35 @@ function clearQrTimer() {
 }
 
 async function simulatePay() {
+  if (resolved) return;
   const gateway = activeGateway;
   log('Simulating customer payment...', 'warn');
-  if (gateway === 'ampersandpay') {
-    await fetch('/mock/ampersandpay/simulate-pay', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ txId: currentExtRef })
-    });
-  } else {
-    await fetch('/mock/simulate-pay', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ referenceNo: currentRef })
-    });
+  try {
+    if (gateway === 'ampersandpay') {
+      await fetch('/mock/ampersandpay/simulate-pay', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ txId: currentExtRef })
+      });
+    } else {
+      await fetch('/mock/simulate-pay', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referenceNo: currentRef })
+      });
+    }
+  } catch(e) { /* ignore simulate errors — still assume paid */ }
+
+  // Immediately assume payment is made
+  if (!resolved) {
+    resolved = true;
+    const amount = parseFloat(document.getElementById('amount').value) || 0;
+    showSuccess({
+      success: true,
+      referenceNo: currentRef,
+      externalRefNo: currentExtRef,
+      amount,
+      provider: gateway
+    }, 'simulate');
   }
-  log('Customer payment sent! Waiting for poll result...', 'ok');
 }
 
 async function cancelPayment() {
