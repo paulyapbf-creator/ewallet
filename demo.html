@@ -459,31 +459,52 @@ async function startPayment() {
   }
 }
 
-async function startPolling(referenceNo, terminalCode, gw) {
+// Client-side polling loop: calls /check every 3s (avoids Railway 30s HTTP timeout)
+function startPolling(referenceNo, terminalCode, gw) {
   const gateway = gw || activeGateway;
-  try {
-    const res = await fetch('/api/payment/' + gateway + '/poll', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ referenceNo, terminalCode, externalRefNo: currentExtRef, intervalMs: 3000, maxAttempts: 60 })
-    }).then(r => r.json());
+  const maxAttempts = 60; // 60 × 3s = 3 minutes max
+  let attempt = 0;
 
-    if (res.success && !resolved) { resolved = true; showSuccess(res, 'poll'); }
-    else if (!resolved) {
+  async function doCheck() {
+    if (resolved) return;
+    if (attempt >= maxAttempts) {
       resolved = true;
       playError();
-      log('Payment failed: ' + (res.message || 'Payment not completed'), 'err');
+      log('Payment timeout — no response after 3 minutes', 'err');
       show('failScreen');
-      document.getElementById('failMsg').textContent = res.message || 'Payment not completed';
+      document.getElementById('failMsg').textContent = 'Payment timeout — please try again';
+      return;
     }
-  } catch (e) {
-    if (!resolved) {
-      resolved = true;
-      playError();
-      log('Poll error: ' + e.message, 'err');
-      show('failScreen');
-      document.getElementById('failMsg').textContent = e.message;
+    attempt++;
+    try {
+      const res = await fetch('/api/payment/' + gateway + '/check', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referenceNo, terminalCode, externalRefNo: currentExtRef })
+      }).then(r => r.json());
+
+      log('Check #' + attempt + ': ' + (res.status || '?') + (res.message ? ' — ' + res.message : ''), 'ws');
+
+      if (res.success && !resolved) {
+        resolved = true;
+        showSuccess(res, 'poll');
+      } else if (!resolved && (res.status === 'failed' || res.status === 'error')) {
+        resolved = true;
+        playError();
+        log('Payment failed: ' + (res.message || 'Payment not completed'), 'err');
+        show('failScreen');
+        document.getElementById('failMsg').textContent = res.message || 'Payment not completed';
+      } else if (!resolved) {
+        setTimeout(doCheck, 3000);
+      }
+    } catch (e) {
+      if (!resolved) {
+        log('Check error: ' + e.message + ' — retrying...', 'err');
+        setTimeout(doCheck, 3000);
+      }
     }
   }
+
+  doCheck();
 }
 
 async function simulatePay() {
