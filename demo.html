@@ -446,10 +446,10 @@ async function startPayment() {
       '<span style="color:#888">Secret Key:</span> <b style="font-family:monospace">' + (currentGwInfo.secretKey || '—') + '</b><br>' +
       '<span style="color:#888">API Endpoint:</span> <b style="word-break:break-all">' + (currentGwInfo.apiUrl || '—') + '</b>';
     show('qrScreen');
-    log('QR displayed — waiting for customer', 'warn');
+    log('QR displayed — polling every 3s for payment...', 'warn');
 
-    // Webhook primary — polling starts only when Simulate is tapped
-    log('Tap "Simulate Customer Payment" to test, or wait for real payment...', 'ws');
+    // Auto-start polling per spec: every 3s, stop on 00 (success) or 05/99 (failed)
+    startPolling(referenceNo, currentTerminal, gateway);
   } catch (err) {
     playError();
     log('Error: ' + err.message, 'err');
@@ -468,9 +468,21 @@ async function startPolling(referenceNo, terminalCode, gw) {
     }).then(r => r.json());
 
     if (res.success && !resolved) { resolved = true; showSuccess(res, 'poll'); }
-    else if (!resolved) throw new Error(res.message || 'Payment not completed');
+    else if (!resolved) {
+      resolved = true;
+      playError();
+      log('Payment failed: ' + (res.message || 'Payment not completed'), 'err');
+      show('failScreen');
+      document.getElementById('failMsg').textContent = res.message || 'Payment not completed';
+    }
   } catch (e) {
-    if (!resolved) { log('Poll error: ' + e.message, 'err'); }
+    if (!resolved) {
+      resolved = true;
+      playError();
+      log('Poll error: ' + e.message, 'err');
+      show('failScreen');
+      document.getElementById('failMsg').textContent = e.message;
+    }
   }
 }
 
@@ -488,8 +500,7 @@ async function simulatePay() {
       body: JSON.stringify({ referenceNo: currentRef })
     });
   }
-  log('Customer payment sent! Starting poll...', 'ok');
-  if (!resolved) startPolling(currentRef, currentTerminal, gateway);
+  log('Customer payment sent! Waiting for poll result...', 'ok');
 }
 
 async function cancelPayment() {
