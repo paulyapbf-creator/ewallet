@@ -183,8 +183,7 @@
       <div id="qrGwInfo" style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:11px;text-align:left;line-height:1.8"></div>
       <div class="spinner" style="margin-top:8px"></div>
       <div class="waiting-text" style="text-align:center">Waiting for customer payment...</div>
-      <div id="qrTimer" style="text-align:center;margin:6px 0 2px;font-size:13px;font-weight:700;color:#16a34a">Expires in <span id="qrTimerSec">60</span>s</div>
-      <div id="qrTimerBar" style="height:4px;border-radius:4px;background:#e0e0e0;margin:4px 0 10px;overflow:hidden"><div id="qrTimerFill" style="height:100%;width:100%;background:#16a34a;transition:width 1s linear,background 1s"></div></div>
+      <div id="qrTimer" style="text-align:center;margin:8px 0;font-size:15px;font-weight:700;color:#16a34a">Expires in <span id="qrTimerSec">60</span>s</div>
       <button class="btn btn-sim" onclick="simulatePay()">Simulate Customer Payment</button>
       <button class="btn btn-cancel" onclick="cancelPayment()">Cancel</button>
     </div>
@@ -516,16 +515,12 @@ function startQrTimer(seconds) {
   clearQrTimer();
   let remaining = seconds;
   const secEl = document.getElementById('qrTimerSec');
-  const fillEl = document.getElementById('qrTimerFill');
   const labelEl = document.getElementById('qrTimer');
 
   function tick() {
     secEl.textContent = remaining;
-    const pct = (remaining / seconds) * 100;
-    fillEl.style.width = pct + '%';
     // Colour: green → orange (at 20s) → red (at 10s)
     const colour = remaining > 20 ? '#16a34a' : remaining > 10 ? '#d97706' : '#e31837';
-    fillEl.style.background = colour;
     labelEl.style.color = colour;
 
     if (remaining <= 0) {
@@ -554,11 +549,10 @@ function startQrTimer(seconds) {
 
 function clearQrTimer() {
   if (qrTimerInterval) { clearTimeout(qrTimerInterval); qrTimerInterval = null; }
-  // Reset display
   const secEl = document.getElementById('qrTimerSec');
-  const fillEl = document.getElementById('qrTimerFill');
+  const labelEl = document.getElementById('qrTimer');
   if (secEl) secEl.textContent = '60';
-  if (fillEl) { fillEl.style.width = '100%'; fillEl.style.background = '#16a34a'; }
+  if (labelEl) labelEl.style.color = '#16a34a';
 }
 
 async function simulatePay() {

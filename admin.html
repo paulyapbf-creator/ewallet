@@ -419,7 +419,8 @@
         <div id="qrTestDisplay" style="display:none;text-align:center;margin-top:16px">
           <div style="font-size:13px;color:#888;margin-bottom:6px" id="qrTestRef"></div>
           <img id="qrTestImage" src="" alt="QR Code" style="border:3px solid #1a1a2e;border-radius:12px;padding:8px;background:#fff;max-width:220px">
-          <div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
+          <div id="qrTimerLabel" style="font-size:15px;font-weight:700;color:#16a34a;margin:10px 0 4px">Expires in <span id="qrTimerSec">60</span>s</div>
+          <div style="margin-top:6px;display:flex;flex-direction:column;gap:8px">
             <button class="btn btn-success" onclick="qrSimulate()">Simulate Customer Payment</button>
             <button class="btn btn-danger" onclick="qrCancel()">Cancel Payment</button>
           </div>
@@ -996,6 +997,7 @@ function reportPage(dir) {
 
 // ── QR Test Tab ───────────────────────────────────────────────────────
 let qrRef = '', qrExtRef = '', qrGateway = '', qrResolved = false;
+let qrTimerInterval = null;
 
 function populateQrTestDropdown() {
   const sel = document.getElementById('qrProfileSelect');
@@ -1080,7 +1082,9 @@ async function qrCreate() {
     document.getElementById('qrTestImage').style.display = qrUrl ? '' : 'none';
     document.getElementById('qrTestRef').textContent = 'Ref: ' + qrRef;
     document.getElementById('qrTestDisplay').style.display = 'block';
-    qrLog('QR ready — waiting for payment...', 'warn');
+    qrLog('QR ready — polling every 3s for payment...', 'warn');
+    startAdminQrTimer(60);
+    qrPoll();
   } catch(e) {
     showMsg('qrTestMsg', e.message, false);
     qrLog('Error: ' + e.message, 'err');
@@ -1103,23 +1107,80 @@ async function qrSimulate() {
         body: JSON.stringify({ referenceNo: qrRef })
       });
     }
-    qrLog('Payment simulated — polling...', 'ok');
-    qrPoll();
+    qrLog('Payment simulated — waiting for poll result...', 'ok');
   } catch(e) { qrLog('Simulate error: ' + e.message, 'err'); }
 }
 
-async function qrPoll() {
-  try {
-    const res = await fetch(API + '/api/payment/' + qrGateway + '/poll', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ referenceNo: qrRef, externalRefNo: qrExtRef, intervalMs: 2000, maxAttempts: 30 })
-    }).then(r => r.json());
-    if (res.success && !qrResolved) { qrResolved = true; qrShowResult(true, res); }
-    else if (!qrResolved) { qrLog('Poll: ' + (res.message || 'not paid'), 'err'); }
-  } catch(e) { qrLog('Poll error: ' + e.message, 'err'); }
+// Client-side polling loop (avoids Railway 30s HTTP timeout)
+function qrPoll() {
+  const maxAttempts = 20;
+  let attempt = 0;
+
+  async function doCheck() {
+    if (qrResolved) return;
+    if (attempt >= maxAttempts) {
+      if (!qrResolved) { qrResolved = true; clearAdminQrTimer(); qrShowResult(false, { message: 'Polling timeout' }); }
+      return;
+    }
+    attempt++;
+    try {
+      const res = await fetch(API + '/api/payment/' + qrGateway + '/check', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referenceNo: qrRef, externalRefNo: qrExtRef })
+      }).then(r => r.json());
+      qrLog('Check #' + attempt + ': ' + (res.status || '?'), res.success ? 'ok' : 'warn');
+      if (res.success && !qrResolved) { qrResolved = true; clearAdminQrTimer(); qrShowResult(true, res); }
+      else if (!qrResolved && (res.status === 'failed' || res.status === 'error')) { qrResolved = true; clearAdminQrTimer(); qrShowResult(false, res); }
+      else if (!qrResolved) { setTimeout(doCheck, 3000); }
+    } catch(e) {
+      if (!qrResolved) { qrLog('Check error: ' + e.message, 'err'); setTimeout(doCheck, 3000); }
+    }
+  }
+
+  doCheck();
+}
+
+function startAdminQrTimer(seconds) {
+  clearAdminQrTimer();
+  let remaining = seconds;
+  const secEl = document.getElementById('qrTimerSec');
+  const labelEl = document.getElementById('qrTimerLabel');
+
+  function tick() {
+    if (secEl) secEl.textContent = remaining;
+    const colour = remaining > 20 ? '#16a34a' : remaining > 10 ? '#d97706' : '#e31837';
+    if (labelEl) labelEl.style.color = colour;
+
+    if (remaining <= 0) {
+      clearAdminQrTimer();
+      if (!qrResolved) {
+        qrResolved = true;
+        qrLog('QR expired', 'err');
+        fetch(API + '/api/payment/' + qrGateway + '/cancel', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ referenceNo: qrRef, externalRefNo: qrExtRef })
+        }).catch(() => {});
+        qrShowResult(false, { message: 'QR code expired' });
+      }
+      return;
+    }
+    remaining--;
+    qrTimerInterval = setTimeout(tick, 1000);
+  }
+
+  tick();
+}
+
+function clearAdminQrTimer() {
+  if (qrTimerInterval) { clearTimeout(qrTimerInterval); qrTimerInterval = null; }
+  const secEl = document.getElementById('qrTimerSec');
+  const labelEl = document.getElementById('qrTimerLabel');
+  if (secEl) secEl.textContent = '60';
+  if (labelEl) labelEl.style.color = '#16a34a';
 }
 
 async function qrCancel() {
+  clearAdminQrTimer();
   qrResolved = true;
   qrLog('Cancelling...', 'warn');
   try {
@@ -1153,6 +1214,7 @@ function qrShowResult(success, data) {
 }
 
 function qrReset() {
+  clearAdminQrTimer();
   qrRef = ''; qrExtRef = ''; qrResolved = false; qrGateway = '';
   document.getElementById('qrTestDisplay').style.display = 'none';
   document.getElementById('qrTestResult').style.display = 'none';
