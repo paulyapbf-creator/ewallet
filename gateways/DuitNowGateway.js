@@ -172,7 +172,10 @@ class DuitNowGateway extends BaseGateway {
 
   // --- Internal HTTP helper ---
   async _post(endpoint, body) {
-    const url = this.config.apiBaseUrl.replace(/\/+$/, '') + endpoint;
+    const base = this.config.apiBaseUrl
+      .replace(/[/]+$/, "")
+      .replace(/[/](Transaction|CheckQRTransaction|Cancellation)$/, "");
+    const url = base + endpoint;
     const isMock = url.includes('/mock/');
 
     console.log(`[DuitNow] POST ${url}`);
