@@ -1094,7 +1094,6 @@ async function qrCreate() {
 }
 
 async function qrSimulate() {
-  if (qrResolved) return;
   qrLog('Simulating customer payment...', 'warn');
   try {
     if (qrGateway === 'ampersandpay') {
@@ -1108,19 +1107,8 @@ async function qrSimulate() {
         body: JSON.stringify({ referenceNo: qrRef })
       });
     }
-  } catch(e) { /* ignore — still assume paid */ }
-
-  // Immediately assume payment is made
-  if (!qrResolved) {
-    qrResolved = true;
-    clearAdminQrTimer();
-    qrLog('Payment assumed successful (simulated)', 'ok');
-    qrShowResult(true, {
-      referenceNo: qrRef,
-      externalRefNo: qrExtRef,
-      amount: parseFloat(document.getElementById('qrAmount').value) || 0
-    });
-  }
+    qrLog('Payment simulated — waiting for poll result...', 'ok');
+  } catch(e) { qrLog('Simulate error: ' + e.message, 'err'); }
 }
 
 // Client-side polling loop (avoids Railway 30s HTTP timeout)
