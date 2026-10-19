@@ -145,7 +145,11 @@
       <div id="tabProfiles" class="tab-content">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div class="section-title" style="margin:0;border:none">Saved Profiles</div>
-          <button class="btn-sm btn-sm-primary" onclick="openForm()">+ New Profile</button>
+          <div style="display:flex;gap:6px">
+            <button class="btn-sm" style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0" onclick="exportProfiles()">&#8659; Export</button>
+            <label class="btn-sm" style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;cursor:pointer">&#8657; Import<input type="file" id="importFile" accept=".json" style="display:none" onchange="importProfiles(this)"></label>
+            <button class="btn-sm btn-sm-primary" onclick="openForm()">+ New</button>
+          </div>
         </div>
 
         <div style="overflow-x:auto">
@@ -154,13 +158,14 @@
               <tr>
                 <th>Name</th>
                 <th>Gateway</th>
-                <th>Merchant ID</th>
+                <th>Terminal</th>
+                <th>API URL</th>
                 <th>Mode</th>
                 <th style="text-align:center">Actions</th>
               </tr>
             </thead>
             <tbody id="profileTableBody">
-              <tr><td colspan="5" style="text-align:center;color:#888;padding:20px">Loading...</td></tr>
+              <tr><td colspan="6" style="text-align:center;color:#888;padding:20px">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -560,25 +565,29 @@ function renderProfileTable() {
   const body = document.getElementById('profileTableBody');
   const names = Object.keys(allProfiles);
   if (names.length === 0) {
-    body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#888;padding:20px">No profiles yet. Click + New Profile to create one.</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;padding:20px">No profiles yet. Click + New to create one.</td></tr>';
     return;
   }
   body.innerHTML = names.map(name => {
     const p = allProfiles[name];
     const gw = p.activeGateway || 'duitnow';
-    const mid = gw === 'duitnow' ? (p.duitnowMerchantCode || p.duitnowAppCode || '—') :
-                gw === 'ampersandpay' ? (p.ampersandpayMerchantId || '—') : (p.ecpiHost || '—');
+    const apiUrl = gw === 'duitnow' ? (p.duitnowApiUrl || '') :
+                   gw === 'ampersandpay' ? (p.ampersandpayApiUrl || '') : (p.ecpiHost ? p.ecpiHost + ':' + (p.ecpiPort || '5000') : '');
+    const apiShort = apiUrl ? apiUrl.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : '(mock)';
+    const terminal = p.terminalCode || '—';
     const live = isLive(p);
     const isAct = name === currentActive;
     const safeName = name.replace(/'/g, "\\'");
     return `<tr class="${isAct ? 'active-row' : ''}">
       <td><b>${name}</b>${isAct ? ' <span class="chip chip-active">ACTIVE</span>' : ''}</td>
       <td><span class="chip ${gwChipClass(gw)}">${GW_NAMES[gw] || gw}</span></td>
-      <td style="font-family:monospace;font-size:11px">${mid}</td>
+      <td style="font-family:monospace;font-size:11px">${terminal}</td>
+      <td style="font-family:monospace;font-size:10px;color:#555;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${apiUrl}">${apiShort}</td>
       <td><span class="chip ${live ? 'chip-live' : 'chip-sandbox'}">${live ? 'LIVE' : 'SANDBOX'}</span></td>
       <td style="text-align:center;white-space:nowrap">
         <button class="btn-sm btn-sm-load" onclick="activateProfile('${safeName}')">Activate</button>
         <button class="btn-sm btn-sm-edit" onclick="editProfile('${safeName}')" style="margin:0 3px">Edit</button>
+        <button class="btn-sm" style="background:#fdf4ff;color:#9333ea;border:1px solid #e9d5ff;margin-right:3px" onclick="duplicateProfile('${safeName}')">Dup</button>
         <button class="btn-sm btn-sm-del" onclick="deleteProfile('${safeName}')">Del</button>
       </td>
     </tr>`;
@@ -749,6 +758,66 @@ async function deleteProfile(name) {
     showMsg('profilesMsg', 'Profile "' + name + '" deleted.', true);
   } catch(e) {
     showMsg('profilesMsg', e.message, false);
+  }
+}
+
+function duplicateProfile(name) {
+  const p = allProfiles[name];
+  if (!p) return;
+  const newName = name + ' (copy)';
+  openForm({
+    fName: newName,
+    fGateway: p.activeGateway || 'duitnow',
+    fTerminal: p.terminalCode || '',
+    fDnAppCode: p.duitnowAppCode || '',
+    fDnMerchantCode: p.duitnowMerchantCode || '',
+    fDnSecretKey: p.duitnowSecretKey || '',
+    fDnApiUrl: p.duitnowApiUrl || '',
+    fApMerchantId: p.ampersandpayMerchantId || '',
+    fApTerminalId: p.ampersandpayTerminalId || '',
+    fApSecretKey: p.ampersandpaySecretKey || '',
+    fApApiUrl: p.ampersandpayApiUrl || '',
+    fApChannel: p.ampersandpayChannel || 'EW',
+    fApScheme: p.ampersandpayScheme || '',
+    fEcpiHost: p.ecpiHost || '',
+    fEcpiPort: p.ecpiPort || '5000',
+    fEcpiTimeout: p.ecpiTimeout || '60000',
+    fEcpiChecksumMode: p.ecpiChecksumMode || 'bcc'
+  });
+  document.getElementById('fName').disabled = false;
+}
+
+function exportProfiles() {
+  const data = JSON.stringify(allProfiles, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'profiles-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function importProfiles(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (typeof data !== 'object' || Array.isArray(data)) throw new Error('Invalid format — expected a JSON object');
+    const count = Object.keys(data).length;
+    if (!confirm('Import ' + count + ' profile(s) from "' + file.name + '"? Existing profiles with the same name will be overwritten.')) return;
+    const res = await fetch(API + '/api/admin/profiles/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
+      body: JSON.stringify(data)
+    }).then(r => r.json());
+    if (res.error) throw new Error(res.error);
+    await refreshProfiles();
+    showMsg('profilesMsg', 'Imported ' + count + ' profile(s) successfully!', true);
+  } catch(e) {
+    showMsg('profilesMsg', 'Import failed: ' + e.message, false);
   }
 }
 
