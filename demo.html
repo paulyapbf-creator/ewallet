@@ -183,6 +183,8 @@
       <div id="qrGwInfo" style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:8px;padding:8px 12px;margin:8px 0;font-size:11px;text-align:left;line-height:1.8"></div>
       <div class="spinner" style="margin-top:8px"></div>
       <div class="waiting-text" style="text-align:center">Waiting for customer payment...</div>
+      <div id="qrTimer" style="text-align:center;margin:6px 0 2px;font-size:13px;font-weight:700;color:#16a34a">Expires in <span id="qrTimerSec">60</span>s</div>
+      <div id="qrTimerBar" style="height:4px;border-radius:4px;background:#e0e0e0;margin:4px 0 10px;overflow:hidden"><div id="qrTimerFill" style="height:100%;width:100%;background:#16a34a;transition:width 1s linear,background 1s"></div></div>
       <button class="btn btn-sim" onclick="simulatePay()">Simulate Customer Payment</button>
       <button class="btn btn-cancel" onclick="cancelPayment()">Cancel</button>
     </div>
@@ -214,6 +216,7 @@ let currentRef = '', currentExtRef = '', currentTerminal = '', resolved = false;
 let activeGateway = 'duitnow';
 let txRunningNo = 1;
 let currentGwInfo = {};
+let qrTimerInterval = null;
 
 function applyConfig(c) {
   activeGateway = c.activeGateway || 'duitnow';
@@ -361,6 +364,7 @@ function log(msg, type = '') {
 }
 
 function showSuccess(data, method) {
+  clearQrTimer();
   show('successScreen');
   const cls = method === 'webhook' ? 'method-webhook' : 'method-poll';
   const label = method === 'webhook' ? 'Confirmed via Webhook' : 'Confirmed via Polling';
@@ -450,6 +454,7 @@ async function startPayment() {
 
     // Auto-start polling per spec: every 3s, stop on 00 (success) or 05/99 (failed)
     startPolling(referenceNo, currentTerminal, gateway);
+    startQrTimer(60);
   } catch (err) {
     playError();
     log('Error: ' + err.message, 'err');
@@ -507,6 +512,55 @@ function startPolling(referenceNo, terminalCode, gw) {
   doCheck();
 }
 
+function startQrTimer(seconds) {
+  clearQrTimer();
+  let remaining = seconds;
+  const secEl = document.getElementById('qrTimerSec');
+  const fillEl = document.getElementById('qrTimerFill');
+  const labelEl = document.getElementById('qrTimer');
+
+  function tick() {
+    secEl.textContent = remaining;
+    const pct = (remaining / seconds) * 100;
+    fillEl.style.width = pct + '%';
+    // Colour: green → orange (at 20s) → red (at 10s)
+    const colour = remaining > 20 ? '#16a34a' : remaining > 10 ? '#d97706' : '#e31837';
+    fillEl.style.background = colour;
+    labelEl.style.color = colour;
+
+    if (remaining <= 0) {
+      clearQrTimer();
+      if (!resolved) {
+        resolved = true;
+        playError();
+        log('QR expired after ' + seconds + 's', 'err');
+        // Cancel server-side, then show expired
+        fetch('/api/payment/' + activeGateway + '/cancel', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transactionNo: currentExtRef || currentRef, referenceNo: currentRef, externalRefNo: currentExtRef, terminalCode: currentTerminal })
+        }).catch(() => {});
+        show('failScreen');
+        document.getElementById('failMsg').textContent = 'QR code expired — please generate a new payment';
+        document.getElementById('failGateway').textContent = '';
+      }
+      return;
+    }
+    remaining--;
+    qrTimerInterval = setTimeout(tick, 1000);
+  }
+
+  tick();
+}
+
+function clearQrTimer() {
+  if (qrTimerInterval) { clearTimeout(qrTimerInterval); qrTimerInterval = null; }
+  // Reset display
+  const secEl = document.getElementById('qrTimerSec');
+  const fillEl = document.getElementById('qrTimerFill');
+  if (secEl) secEl.textContent = '60';
+  if (fillEl) { fillEl.style.width = '100%'; fillEl.style.background = '#16a34a'; }
+}
+
 async function simulatePay() {
   const gateway = activeGateway;
   log('Simulating customer payment...', 'warn');
@@ -525,6 +579,7 @@ async function simulatePay() {
 }
 
 async function cancelPayment() {
+  clearQrTimer();
   playError();
   resolved = true;
   log('Cancelling...', 'warn');
@@ -538,7 +593,7 @@ async function cancelPayment() {
   reset();
 }
 
-function reset() { show('formScreen'); currentRef = ''; currentExtRef = ''; resolved = false; numpadRaw = '0'; document.getElementById('amount').value = '0.00'; }
+function reset() { clearQrTimer(); show('formScreen'); currentRef = ''; currentExtRef = ''; resolved = false; numpadRaw = '0'; document.getElementById('amount').value = '0.00'; }
 
 // --- APK Update Check ---
 function parseVer(v) { return v.replace(/^v/, '').split('.').map(Number); }
