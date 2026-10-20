@@ -187,7 +187,7 @@ app.get('/api/admin/profiles/:name/load', requireAuth, (req, res) => {
   const safeProfile = Object.fromEntries(
     Object.entries(profile).filter(([k]) => !otherPrefixes.some(p => k.startsWith(p)))
   );
-  const saved = settings.save(safeProfile);
+  const saved = settings.save({ ...safeProfile, activeProfile: req.params.name });
   console.log('[ADMIN] Profile loaded: ' + req.params.name + ' (gateway=' + gw + ')');
   res.json(saved);
 });
@@ -470,7 +470,7 @@ app.get('/api/config', (req, res) => {
 
   res.json({
     activeGateway: gw,
-    activeProfile: s.activeProfile || 'default',
+    activeProfile: s.activeProfile || '',
     txRunningNo: s.txRunningNo || 1,
     terminalCode: s.terminalCode || 'POS-01',
     gwInfo
