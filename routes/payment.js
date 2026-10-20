@@ -75,7 +75,7 @@ function createPaymentRouter(store, options = {}) {
   // Create transaction
   router.post('/api/payment/:provider/create', async (req, res) => {
     try {
-      const { tenantId, amount, referenceNo, terminalCode, txRunningNo } = req.body;
+      const { tenantId, amount, referenceNo, terminalCode, txRunningNo, cashier } = req.body;
       const s = await loadTenantSettings(tenantId);
       const config = getGatewayConfig(s, req.params.provider);
       const gateway = getGateway(req.params.provider, config);
@@ -86,7 +86,7 @@ function createPaymentRouter(store, options = {}) {
 
       // Save to DB
       if (onTransactionCreate) {
-        onTransactionCreate({ txRunningNo: txRunningNo || null, referenceNo, amount: parseFloat(amount), gateway: req.params.provider, terminalCode: termCode });
+        onTransactionCreate({ txRunningNo: txRunningNo || null, referenceNo, amount: parseFloat(amount), gateway: req.params.provider, terminalCode: termCode, cashier: cashier || '' });
       }
 
       res.json({ ...result, tenantId: tenantId || null });

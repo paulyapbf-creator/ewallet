@@ -552,10 +552,10 @@
         <div style="overflow-x:auto">
           <table class="tx-table">
             <thead>
-              <tr><th>Txn</th><th>Date/Time</th><th>Reference</th><th>Amount</th><th>GW</th><th>Status</th></tr>
+              <tr><th>Txn</th><th>Date/Time</th><th>Reference</th><th>Amount</th><th>GW</th><th>Method</th><th>Cashier</th><th>Status</th></tr>
             </thead>
             <tbody id="txTableBody">
-              <tr><td colspan="6" style="text-align:center;color:#888;padding:16px">Loading...</td></tr>
+              <tr><td colspan="8" style="text-align:center;color:#888;padding:16px">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -627,11 +627,16 @@
   </div>
 
   <!-- Result Screen -->
-  <div id="calcQrResult" style="display:none;width:100%;max-width:420px;background:#1c1c1e;border-radius:20px;padding:32px 24px;text-align:center">
-    <div style="font-size:64px;margin-bottom:8px" id="calcQrResultIcon"></div>
-    <div style="font-size:22px;font-weight:700;margin-bottom:8px" id="calcQrResultTitle"></div>
-    <div style="font-size:14px;color:#888;margin-bottom:6px" id="calcQrResultMsg"></div>
-    <div id="calcQrResultTxNo" style="font-size:13px;font-family:monospace;color:#ffd60a;margin-bottom:20px"></div>
+  <div id="calcQrResult" style="display:none;width:100%;max-width:420px;background:#1c1c1e;border-radius:20px;padding:24px 20px;text-align:center">
+    <div style="font-size:52px;margin-bottom:4px" id="calcQrResultIcon"></div>
+    <div style="font-size:18px;font-weight:700;margin-bottom:10px" id="calcQrResultTitle"></div>
+    <!-- Receipt card (shown on success) -->
+    <div id="calcQrReceipt" style="display:none;background:#111;border-radius:12px;padding:14px 16px;text-align:left;margin-bottom:14px">
+      <div style="text-align:center;font-size:11px;color:#555;font-family:monospace;letter-spacing:1px;margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed #333">── RECEIPT ──</div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px;font-family:monospace" id="calcReceiptTable"></table>
+      <div style="text-align:center;font-size:11px;color:#555;font-family:monospace;letter-spacing:1px;margin-top:10px;padding-top:8px;border-top:1px dashed #333">── THANK YOU ──</div>
+    </div>
+    <div style="font-size:13px;color:#666;margin-bottom:14px" id="calcQrResultMsg"></div>
     <button onclick="calcReset()" style="width:100%;padding:14px;background:#30d158;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer">New Calculation</button>
   </div>
 </div>
@@ -1189,13 +1194,15 @@ async function loadReport(offset) {
     const gwN = { duitnow: 'J&C', ampersandpay: 'AP', ecpi: 'ECPI' };
     const body = document.getElementById('txTableBody');
     body.innerHTML = (!r.rows || !r.rows.length)
-      ? '<tr><td colspan="6" style="text-align:center;color:#888;padding:16px">No transactions</td></tr>'
+      ? '<tr><td colspan="8" style="text-align:center;color:#888;padding:16px">No transactions</td></tr>'
       : r.rows.map(t => `<tr>
           <td>${t.txRunningNo ? String(t.txRunningNo).padStart(6,'0') : '-'}</td>
-          <td style="white-space:nowrap;font-size:10px">${t.createdAt || '-'}</td>
-          <td style="font-family:monospace;font-size:9px">${(t.referenceNo||'-').slice(0,18)}</td>
+          <td style="white-space:nowrap;font-size:10px">${(t.completedAt||t.createdAt||'-')}</td>
+          <td style="font-family:monospace;font-size:9px">${(t.externalRefNo||t.referenceNo||'-').slice(0,18)}</td>
           <td style="font-weight:700">RM ${parseFloat(t.amount||0).toFixed(2)}</td>
           <td>${gwN[t.gateway]||t.gateway||'-'}</td>
+          <td style="font-size:10px">${t.paymentMethod||'-'}</td>
+          <td style="font-size:10px">${t.cashier||'-'}</td>
           <td class="status-${t.status}">${(t.status||'').toUpperCase()}</td>
         </tr>`).join('');
     const f = reportOffset + 1, t2 = Math.min(reportOffset + REPORT_LIMIT, reportTotal);
@@ -1670,7 +1677,7 @@ async function calcGenerateQR(profileName, amount) {
   try {
     const res = await fetch(API + '/api/payment/' + gw + '/create', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount, referenceNo: ref, terminalCode: p.terminalCode || 'CALC-TEST', txRunningNo: calcTxRunningNo })
+      body: JSON.stringify({ amount, referenceNo: ref, terminalCode: p.terminalCode || 'CALC-TEST', txRunningNo: calcTxRunningNo, cashier: currentUsername })
     }).then(r => r.json());
 
     if (!res.success && !res.checkoutUrl) {
@@ -1718,7 +1725,7 @@ function calcStartPolling(ref, extRef, gw, terminalCode) {
         body: JSON.stringify({ referenceNo: ref, externalRefNo: extRef, terminalCode })
       }).then(r => r.json());
       calcLog('Check #' + attempt + ': ' + (res.status || '?'), res.success ? 'ok' : 'warn');
-      if (res.success && !calcQrResolved) { calcQrResolved = true; calcStopTimer(); calcOnPaid(ref, extRef, 'poll', parseFloat(res.amount || 0)); }
+      if (res.success && !calcQrResolved) { calcQrResolved = true; calcStopTimer(); calcOnPaid(ref, res.externalRefNo || extRef, 'poll', parseFloat(res.amount || 0), res.serviceName || '', res.raw || {}); }
       else if (!calcQrResolved && (res.status === 'failed' || res.status === 'error')) { calcQrResolved = true; calcStopTimer(); calcShowResult(false, res.message || 'Payment failed'); }
       else if (!calcQrResolved) setTimeout(doCheck, 3000);
     } catch(e) {
@@ -1753,29 +1760,58 @@ function calcStopTimer() {
   if (calcQrTimerHandle) { clearTimeout(calcQrTimerHandle); calcQrTimerHandle = null; }
 }
 
-function calcShowResult(success, msg, txNo) {
+function calcShowResult(success, msg, receipt) {
   document.getElementById('calcQrArea').style.display = 'none';
   document.getElementById('calcQrResult').style.display = 'block';
   document.getElementById('calcQrResultIcon').textContent = success ? '✓' : '✗';
   document.getElementById('calcQrResultIcon').style.color = success ? '#30d158' : '#ff453a';
   document.getElementById('calcQrResultTitle').textContent = success ? 'Payment Successful' : 'Payment Failed';
   document.getElementById('calcQrResultTitle').style.color = success ? '#30d158' : '#ff453a';
-  document.getElementById('calcQrResultMsg').textContent = msg || '';
-  document.getElementById('calcQrResultTxNo').textContent = txNo ? 'Txn # ' + String(txNo).padStart(6, '0') : '';
+  document.getElementById('calcQrResultMsg').textContent = success ? '' : (msg || '');
+  const receiptEl = document.getElementById('calcQrReceipt');
+  if (success && receipt) {
+    receiptEl.style.display = 'block';
+    const rows = [
+      ['Amount',       receipt.amount],
+      ['Txn #',        receipt.txNo ? String(receipt.txNo).padStart(6,'0') : '-'],
+      ['Date/Time',    receipt.completedAt || '-'],
+      ['Method',       receipt.paymentMethod || '-'],
+      ['DuitNow Ref',  receipt.externalRefNo || '-'],
+      ['Our Ref',      (receipt.ref || '-').slice(0,22)],
+      ['Cashier',      receipt.cashier || '-'],
+      ['Terminal',     receipt.terminalCode || '-'],
+    ];
+    document.getElementById('calcReceiptTable').innerHTML = rows.map(([k,v]) =>
+      `<tr><td style="color:#888;padding:3px 0;width:42%">${k}</td><td style="color:#fff;padding:3px 0;word-break:break-all">${v}</td></tr>`
+    ).join('');
+  } else {
+    receiptEl.style.display = 'none';
+  }
 }
 
-async function calcOnPaid(ref, extRef, method, amount) {
+async function calcOnPaid(ref, extRef, method, amount, serviceName, rawData) {
   const usedTxNo = calcTxRunningNo;
+  const now = new Date(Date.now() + 8*3600000).toISOString().replace('T',' ').slice(0,19);
   try {
     const r = await fetch(API + '/api/txno/increment', {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
-      body: JSON.stringify({ referenceNo: ref, externalRefNo: extRef, method })
+      body: JSON.stringify({ referenceNo: ref, externalRefNo: extRef, method, paymentMethod: serviceName })
     }).then(r => r.json());
     calcTxRunningNo = r.txRunningNo || (usedTxNo + 1);
   } catch(e) {
     calcTxRunningNo = usedTxNo + 1;
   }
-  calcShowResult(true, 'RM ' + amount.toFixed(2) + ' paid', usedTxNo);
+  const p = allProfiles[currentActive] || {};
+  calcShowResult(true, '', {
+    amount:        'RM ' + amount.toFixed(2),
+    txNo:          usedTxNo,
+    completedAt:   now,
+    paymentMethod: serviceName || (rawData && rawData.ServiceName) || '-',
+    externalRefNo: extRef || '-',
+    ref,
+    cashier:       currentUsername,
+    terminalCode:  p.terminalCode || '-'
+  });
 }
 
 async function calcQrCancel(silent) {

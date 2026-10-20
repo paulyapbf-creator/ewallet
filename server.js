@@ -501,7 +501,7 @@ app.post('/api/txno/increment', (req, res) => {
   settings.save({ txRunningNo: next });
 
   // Update transaction DB status if referenceNo provided
-  const { referenceNo, externalRefNo, method } = req.body || {};
+  const { referenceNo, externalRefNo, method, paymentMethod } = req.body || {};
   console.log(`[TXNO] increment called, referenceNo="${referenceNo || '(none)'}"`);
   if (referenceNo) {
     try {
@@ -509,6 +509,7 @@ app.post('/api/txno/increment', (req, res) => {
         status: 'paid',
         externalRefNo: externalRefNo || '',
         method: method || 'unknown',
+        paymentMethod: paymentMethod || '',
         completedAt: mytNow()
       });
     } catch(e) { console.error('[DB] paid update failed:', e.message); }
