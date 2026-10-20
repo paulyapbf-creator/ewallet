@@ -510,22 +510,6 @@
             <button class="calc-btn eq" id="calcEqBtn" onclick="calcBtn('=')">=</button>
           </div>
 
-          <!-- QR display (shown after second =) -->
-          <div class="calc-qr" id="calcQrArea" style="display:none">
-            <div style="font-size:12px;color:#888;margin-bottom:6px" id="calcQrRef"></div>
-            <img id="calcQrImage" src="" alt="QR" style="border:3px solid #30d158;border-radius:12px;padding:8px;background:#fff;max-width:200px">
-            <div id="calcQrTimer" style="font-size:15px;font-weight:700;color:#30d158;margin:8px 0">Expires in <span id="calcQrSec">60</span>s</div>
-            <div id="calcQrLog" style="background:#111;border-radius:8px;padding:8px;max-height:80px;overflow-y:auto;text-align:left;margin-bottom:8px"></div>
-            <button class="btn btn-danger" onclick="calcQrCancel()" style="margin-top:0">Cancel</button>
-          </div>
-
-          <!-- Result display (shown after QR resolves) -->
-          <div class="calc-qr" id="calcQrResult" style="display:none">
-            <div style="font-size:36px" id="calcQrResultIcon"></div>
-            <div style="font-size:16px;font-weight:700;margin:6px 0" id="calcQrResultTitle"></div>
-            <div style="font-size:12px;color:#888" id="calcQrResultMsg"></div>
-            <button class="btn btn-primary" onclick="calcReset()" style="margin-top:12px">New Calculation</button>
-          </div>
         </div>
       </div><!-- end tabCalc -->
 
@@ -572,6 +556,28 @@
       </div><!-- end tabReports -->
 
     </div><!-- end mainScreen -->
+  </div>
+</div>
+
+<!-- ── CALC QR MODAL (full-screen overlay) ── -->
+<div id="calcQrModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px">
+  <!-- QR Screen -->
+  <div id="calcQrArea" style="display:none;width:100%;max-width:420px;background:#1c1c1e;border-radius:20px;padding:24px 20px;text-align:center">
+    <div style="font-size:13px;color:#888;margin-bottom:4px">Payment Request</div>
+    <div id="calcQrAmount" style="font-size:36px;font-weight:700;color:#fff;margin-bottom:4px"></div>
+    <div style="font-size:11px;color:#555;font-family:monospace;margin-bottom:14px" id="calcQrRef"></div>
+    <img id="calcQrImage" src="" alt="QR" style="border:4px solid #30d158;border-radius:16px;padding:10px;background:#fff;width:100%;max-width:260px">
+    <div id="calcQrTimer" style="font-size:18px;font-weight:700;color:#30d158;margin:14px 0 4px">Expires in <span id="calcQrSec">60</span>s</div>
+    <div id="calcQrLog" style="background:#111;border-radius:10px;padding:10px;max-height:100px;overflow-y:auto;text-align:left;margin:10px 0;font-size:10px"></div>
+    <button onclick="calcQrCancel()" style="width:100%;padding:14px;background:#e31837;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px">Cancel Payment</button>
+  </div>
+
+  <!-- Result Screen -->
+  <div id="calcQrResult" style="display:none;width:100%;max-width:420px;background:#1c1c1e;border-radius:20px;padding:32px 24px;text-align:center">
+    <div style="font-size:64px;margin-bottom:8px" id="calcQrResultIcon"></div>
+    <div style="font-size:22px;font-weight:700;margin-bottom:8px" id="calcQrResultTitle"></div>
+    <div style="font-size:14px;color:#888;margin-bottom:24px" id="calcQrResultMsg"></div>
+    <button onclick="calcReset()" style="width:100%;padding:14px;background:#30d158;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer">New Calculation</button>
   </div>
 </div>
 
@@ -1367,8 +1373,7 @@ function calcUpdateDisplay() {
 
 function calcBtn(val) {
   // If QR is showing, ignore all input except C
-  if (document.getElementById('calcQrArea').style.display !== 'none' ||
-      document.getElementById('calcQrResult').style.display !== 'none') {
+  if (document.getElementById('calcQrModal').style.display !== 'none') {
     if (val === 'C') calcReset();
     return;
   }
@@ -1470,10 +1475,14 @@ async function calcGenerateQR(profileName, amount) {
   const ref = 'CALC-' + Date.now() + '-' + Math.random().toString(36).slice(2,4).toUpperCase();
   calcQrResolved = false;
 
+  // Show modal with QR area
+  const modal = document.getElementById('calcQrModal');
+  modal.style.display = 'flex';
   document.getElementById('calcQrArea').style.display = 'block';
   document.getElementById('calcQrResult').style.display = 'none';
   document.getElementById('calcQrLog').innerHTML = '';
-  document.getElementById('calcQrRef').textContent = 'RM ' + amount.toFixed(2) + '  |  Ref: ' + ref;
+  document.getElementById('calcQrAmount').textContent = 'RM ' + amount.toFixed(2);
+  document.getElementById('calcQrRef').textContent = 'Ref: ' + ref;
   document.getElementById('calcQrImage').src = '';
 
   calcLog('Creating ' + gw + ' payment for RM ' + amount.toFixed(2) + '...', 'warn');
@@ -1508,6 +1517,7 @@ async function calcGenerateQR(profileName, amount) {
     calcLog('Error: ' + e.message, 'err');
     showMsg('calcMsg', e.message, false);
     document.getElementById('calcQrArea').style.display = 'none';
+    document.getElementById('calcQrModal').style.display = 'none';
   }
 }
 
@@ -1565,8 +1575,8 @@ function calcStopTimer() {
 
 function calcShowResult(success, msg) {
   document.getElementById('calcQrArea').style.display = 'none';
-  const res = document.getElementById('calcQrResult');
-  res.style.display = 'block';
+  document.getElementById('calcQrResult').style.display = 'block';
+  // Keep modal open to show result
   document.getElementById('calcQrResultIcon').textContent = success ? '✓' : '✗';
   document.getElementById('calcQrResultIcon').style.color = success ? '#30d158' : '#ff453a';
   document.getElementById('calcQrResultTitle').textContent = success ? 'Payment Successful' : 'Payment Failed';
@@ -1579,12 +1589,17 @@ async function calcQrCancel(silent) {
   calcQrResolved = true;
   if (!silent) calcLog('Cancelled.', 'warn');
   document.getElementById('calcQrArea').style.display = 'none';
-  if (!silent) calcShowResult(false, 'Cancelled by user');
+  if (!silent) {
+    calcShowResult(false, 'Cancelled by user');
+  } else {
+    document.getElementById('calcQrModal').style.display = 'none';
+  }
 }
 
 function calcReset() {
   calcStopTimer();
   calcExpr = ''; calcResultReady = false; calcFinalValue = 0; calcQrResolved = false; calcOpenParens = 0;
+  document.getElementById('calcQrModal').style.display = 'none';
   document.getElementById('calcQrArea').style.display = 'none';
   document.getElementById('calcQrResult').style.display = 'none';
   document.getElementById('calcQrLog').innerHTML = '';
