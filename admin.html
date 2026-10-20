@@ -144,9 +144,10 @@
 </head>
 <body>
 <div class="container">
-  <div class="header">
+  <div class="header" style="position:relative">
     <h1>BKT Wallet Admin</h1>
-    <p>Gateway Profile Management</p>
+    <p id="headerUser" style="font-size:11px;opacity:0.6;margin-top:3px">Gateway Profile Management</p>
+    <button id="logoutBtn" onclick="doLogout()" style="display:none;position:absolute;top:12px;right:14px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);color:#fff;border-radius:8px;font-size:11px;font-weight:600;padding:5px 12px;cursor:pointer">Logout</button>
   </div>
   <div class="body">
 
@@ -170,9 +171,9 @@
     <!-- MAIN -->
     <div id="mainScreen" class="screen">
       <div class="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('test')">Test</button>
-        <button class="tab-btn" onclick="switchTab('calc')">Calc</button>
+        <button class="tab-btn active" onclick="switchTab('calc')">Calc</button>
         <button class="tab-btn" onclick="switchTab('reports')">Reports</button>
+        <button class="tab-btn admin-tab" onclick="switchTab('test')">Test</button>
         <button class="tab-btn admin-tab" onclick="switchTab('profiles')">Profiles</button>
         <button class="tab-btn admin-tab" onclick="switchTab('settings')">Settings</button>
         <button class="tab-btn admin-tab" onclick="switchTab('qrtest')">QR Test</button>
@@ -690,7 +691,12 @@ async function doLogin() {
       b.style.display = currentRole === 'admin' ? 'block' : 'none';
     });
 
-    // Load settings (admin) or skip to test tab (cashier)
+    // Show logout button + username in header
+    document.getElementById('logoutBtn').style.display = 'block';
+    document.getElementById('headerUser').textContent =
+      currentUsername + (currentRole === 'admin' ? ' · Admin' : ' · Cashier');
+
+    // Load settings (admin) or go to calc tab (cashier)
     if (currentRole === 'admin') {
       const settings = await fetch(API + '/api/admin/settings', {
         headers: { 'Authorization': 'Bearer ' + authToken }
@@ -702,12 +708,11 @@ async function doLogin() {
       setCallbackUrls();
       switchTab('profiles');
     } else {
-      // Cashier: load profiles for Test/Calc tabs
+      // Cashier: load profiles for Calc tab
       const cfg = await fetch(API + '/api/config').then(r => r.json());
       currentActive = cfg.activeProfile || '';
       await refreshProfiles();
-      populateTestDropdown();
-      switchTab('test');
+      switchTab('calc');
     }
 
     document.getElementById('loginScreen').classList.remove('active');
@@ -716,6 +721,19 @@ async function doLogin() {
   } catch (e) {
     showMsg('loginMsg', e.message, false);
   }
+}
+
+function doLogout() {
+  authToken = ''; currentRole = ''; currentUsername = '';
+  allProfiles = {}; allUsers = []; currentActive = '';
+  document.getElementById('logoutBtn').style.display = 'none';
+  document.getElementById('headerUser').textContent = 'Gateway Profile Management';
+  document.querySelectorAll('.admin-tab').forEach(b => b.style.display = 'none');
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginPassword').value = '';
+  document.getElementById('mainScreen').classList.remove('active');
+  document.getElementById('loginScreen').classList.add('active');
+  document.getElementById('loginUsername').focus();
 }
 
 // ── Tabs ──────────────────────────────────────────────────────────────
@@ -736,7 +754,7 @@ function switchTab(tab) {
 
 function calcOpenMenu() {
   document.querySelector('.tab-bar').style.display = '';
-  switchTab(currentRole === 'admin' ? 'profiles' : 'test');
+  switchTab(currentRole === 'admin' ? 'profiles' : 'reports');
 }
 
 // ── Profiles ──────────────────────────────────────────────────────────
