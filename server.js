@@ -155,10 +155,9 @@ app.post('/api/admin/profiles/import', requirePin, (req, res) => {
     }
     const replace = req.query.replace === '1';
     const existing = replace ? {} : settings.loadProfiles();
-    const fs = require('fs');
-    const path = require('path');
     const merged = { ...existing, ...incoming };
-    fs.writeFileSync(path.join(__dirname, 'profiles.json'), JSON.stringify(merged, null, 2), 'utf8');
+    const profilesPath = path.join(process.env.DATA_DIR || __dirname, 'profiles.json');
+    fs.writeFileSync(profilesPath, JSON.stringify(merged, null, 2), 'utf8');
     console.log(`[ADMIN] Profiles imported: ${Object.keys(incoming).join(', ')} (replace=${replace})`);
     res.json({ success: true, count: Object.keys(merged).length, profiles: settings.listProfiles() });
   } catch (e) {
@@ -567,12 +566,18 @@ app.get('/health', (req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
+  // Ensure data directory exists
+  const dataDir = process.env.DATA_DIR || path.join(__dirname);
+  if (process.env.DATA_DIR) {
+    try { fs.mkdirSync(process.env.DATA_DIR, { recursive: true }); } catch(e) {}
+  }
+
   const s = settings.load();
   const mode = s.duitnowApiUrl ? 'LIVE' : 'SANDBOX';
   console.log(`\n=== DuitNow Payment Gateway ===`);
   console.log(`POS Terminal:  ${BASE_URL}`);
-  console.log(`Customer App:  ${BASE_URL}/pay`);
   console.log(`Admin Panel:   ${BASE_URL}/admin`);
   console.log(`Callback URL:  ${BASE_URL}/api/payment/duitnow/callback`);
-  console.log(`Mode: ${mode} | Default PIN: ${s.adminPin}\n`);
+  console.log(`Data directory: ${process.env.DATA_DIR || '(project root — not persistent)'}`);
+  console.log(`Mode: ${mode}\n`);
 });
