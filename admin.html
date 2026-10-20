@@ -107,6 +107,11 @@
   /* Login */
   .login-box { text-align: center; padding: 16px 0; }
   .login-box h2 { font-size: 15px; color: #333; margin-bottom: 14px; }
+  /* Role-based tab visibility */
+  .admin-tab { display: none; }
+  /* Role chips */
+  .chip-admin { background: #eff6ff; color: #2563eb; }
+  .chip-cashier { background: #f0fdf4; color: #16a34a; }
 
   /* Calculator */
   .calc-wrap { background: #1c1c1e; border-radius: 16px; padding: 16px 10px 14px; margin: -4px -20px -20px; user-select: none; -webkit-user-select: none; }
@@ -148,10 +153,13 @@
     <!-- LOGIN -->
     <div id="loginScreen" class="screen active">
       <div class="login-box">
-        <h2>Enter Admin PIN</h2>
+        <h2>Login</h2>
         <div class="field">
-          <input type="password" id="pinInput" placeholder="PIN" maxlength="10"
-            style="text-align:center;font-size:24px;letter-spacing:8px"
+          <input type="text" id="loginUsername" placeholder="Username" autocomplete="username"
+            onkeydown="if(event.key==='Enter')document.getElementById('loginPassword').focus()">
+        </div>
+        <div class="field">
+          <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password"
             onkeydown="if(event.key==='Enter')doLogin()">
         </div>
         <div id="loginMsg" class="msg msg-err"></div>
@@ -162,12 +170,13 @@
     <!-- MAIN -->
     <div id="mainScreen" class="screen">
       <div class="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('profiles')">Profiles</button>
-        <button class="tab-btn" onclick="switchTab('test')">Test</button>
-        <button class="tab-btn" onclick="switchTab('settings')">Settings</button>
-        <button class="tab-btn" onclick="switchTab('qrtest')">QR Test</button>
+        <button class="tab-btn active" onclick="switchTab('test')">Test</button>
         <button class="tab-btn" onclick="switchTab('calc')">Calc</button>
         <button class="tab-btn" onclick="switchTab('reports')">Reports</button>
+        <button class="tab-btn admin-tab" onclick="switchTab('profiles')">Profiles</button>
+        <button class="tab-btn admin-tab" onclick="switchTab('settings')">Settings</button>
+        <button class="tab-btn admin-tab" onclick="switchTab('qrtest')">QR Test</button>
+        <button class="tab-btn admin-tab" onclick="switchTab('users')">Users</button>
       </div>
 
       <!-- ── PROFILES TAB ── -->
@@ -555,6 +564,49 @@
         </div>
       </div><!-- end tabReports -->
 
+      <!-- ── USERS TAB ── -->
+      <div id="tabUsers" class="tab-content" style="display:none">
+        <div id="usersMsg" class="msg"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div class="section-title" style="margin:0;border:none">Users</div>
+          <button class="btn-sm btn-sm-primary" onclick="openUserForm(null)">+ New User</button>
+        </div>
+        <table class="profile-table">
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Role</th>
+              <th style="text-align:center">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="userTableBody"></tbody>
+        </table>
+
+        <!-- User form -->
+        <div id="userForm" class="form-panel" style="display:none;margin-top:14px">
+          <div id="userFormTitle" class="section-title">New User</div>
+          <div class="field">
+            <label>Username</label>
+            <input type="text" id="fUserUsername" placeholder="e.g. cashier1" autocomplete="off">
+          </div>
+          <div class="field">
+            <label id="fUserPasswordLabel">Password</label>
+            <input type="password" id="fUserPassword" placeholder="Password" autocomplete="new-password">
+          </div>
+          <div class="field">
+            <label>Role</label>
+            <select id="fUserRole">
+              <option value="cashier">Cashier</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn btn-primary" onclick="saveUser()" style="flex:1">Save</button>
+            <button class="btn" onclick="closeUserForm()" style="flex:1;background:#f0f0f0;color:#333;border:none">Cancel</button>
+          </div>
+        </div>
+      </div><!-- end tabUsers -->
+
     </div><!-- end mainScreen -->
   </div>
 </div>
@@ -583,9 +635,13 @@
 
 <script>
 const API = location.origin;
-let authPin = '';
+let authToken = '';
+let currentRole = '';
+let currentUsername = '';
 let editingProfile = null;   // null = new, string = name being edited
 let allProfiles = {};        // name -> full profile data
+let allUsers = [];           // [{username, role}]
+let editingUser = null;      // null = new, string = username being edited
 let currentActive = '';      // activeProfile name from settings
 let testProfile = null;      // full data of selected test profile
 
@@ -615,18 +671,43 @@ function copyText(id) {
 
 // ── Login ─────────────────────────────────────────────────────────────
 async function doLogin() {
-  const pin = document.getElementById('pinInput').value;
-  if (!pin) return;
+  const username = document.getElementById('loginUsername').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if (!username || !password) { showMsg('loginMsg', 'Enter username and password', false); return; }
   try {
-    const res = await fetch(API + '/api/admin/settings', {
-      headers: { 'x-admin-pin': pin }
-    }).then(r => { if (r.status === 401) throw new Error('Wrong PIN'); return r.json(); });
-    authPin = pin;
-    currentActive = res.activeProfile || '';
-    populateSettingsForm(res);
-    await refreshProfiles();
-    populateTestDropdown();
-    setCallbackUrls();
+    const loginRes = await fetch(API + '/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    }).then(r => { if (r.status === 401) throw new Error('Invalid username or password'); return r.json(); });
+
+    authToken = loginRes.token;
+    currentRole = loginRes.role;
+    currentUsername = loginRes.username;
+
+    // Show admin-only tabs if admin
+    document.querySelectorAll('.admin-tab').forEach(b => {
+      b.style.display = currentRole === 'admin' ? '' : 'none';
+    });
+
+    // Load settings (admin) or skip to test tab (cashier)
+    if (currentRole === 'admin') {
+      const settings = await fetch(API + '/api/admin/settings', {
+        headers: { 'Authorization': 'Bearer ' + authToken }
+      }).then(r => r.json());
+      currentActive = settings.activeProfile || '';
+      populateSettingsForm(settings);
+      await refreshProfiles();
+      populateTestDropdown();
+      setCallbackUrls();
+      switchTab('profiles');
+    } else {
+      // Cashier: load active profile info only
+      const cfg = await fetch(API + '/api/config').then(r => r.json());
+      currentActive = cfg.activeProfile || '';
+      switchTab('test');
+    }
+
     document.getElementById('loginScreen').classList.remove('active');
     document.getElementById('mainScreen').classList.add('active');
     checkAppUpdate();
@@ -648,17 +729,18 @@ function switchTab(tab) {
   if (tab === 'reports') { loadSummary(); loadReport(0); }
   if (tab === 'qrtest') { populateQrTestDropdown(); }
   if (tab === 'calc') { updateCalcBadge(); }
+  if (tab === 'users') { refreshUsers(); }
 }
 
 function calcOpenMenu() {
   document.querySelector('.tab-bar').style.display = '';
-  switchTab('profiles');
+  switchTab(currentRole === 'admin' ? 'profiles' : 'test');
 }
 
 // ── Profiles ──────────────────────────────────────────────────────────
 async function refreshProfiles() {
   try {
-    const res = await fetch(API + '/api/admin/profiles/all', { headers: { 'x-admin-pin': authPin } }).then(r => r.json());
+    const res = await fetch(API + '/api/admin/profiles/all', { headers: { 'Authorization': 'Bearer ' + authToken } }).then(r => r.json());
     allProfiles = res.profiles || {};
     renderProfileTable();
     populateTestDropdown();
@@ -830,7 +912,7 @@ async function saveProfile() {
   try {
     await fetch(API + '/api/admin/profiles/' + encodeURIComponent(name), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
       body: JSON.stringify(data)
     }).then(r => { if (!r.ok) throw new Error('Save failed'); return r.json(); });
     await refreshProfiles();
@@ -844,7 +926,7 @@ async function saveProfile() {
 async function activateProfile(name) {
   try {
     const res = await fetch(API + '/api/admin/profiles/' + encodeURIComponent(name) + '/load', {
-      headers: { 'x-admin-pin': authPin }
+      headers: { 'Authorization': 'Bearer ' + authToken }
     }).then(r => { if (!r.ok) throw new Error('Failed to activate'); return r.json(); });
     currentActive = name;
     populateSettingsForm(res);
@@ -859,7 +941,7 @@ async function deleteProfile(name) {
   if (!confirm('Delete profile "' + name + '"?')) return;
   try {
     await fetch(API + '/api/admin/profiles/' + encodeURIComponent(name), {
-      method: 'DELETE', headers: { 'x-admin-pin': authPin }
+      method: 'DELETE', headers: { 'Authorization': 'Bearer ' + authToken }
     });
     if (currentActive === name) currentActive = '';
     await refreshProfiles();
@@ -918,7 +1000,7 @@ async function importProfiles(input) {
     if (!confirm('Import ' + count + ' profile(s) from "' + file.name + '"? Existing profiles with the same name will be overwritten.')) return;
     const res = await fetch(API + '/api/admin/profiles/import', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
       body: JSON.stringify(data)
     }).then(r => r.json());
     if (res.error) throw new Error(res.error);
@@ -979,7 +1061,7 @@ async function testSelectedProfile() {
   try {
     const res = await fetch(API + '/api/admin/test-signature', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
       body: JSON.stringify({ gateway: testProfile.activeGateway, ...testProfile })
     }).then(r => r.json());
     if (res.success) showMsg('testMsg', res.gateway + ' OK! Signature: ' + res.signature.substring(0, 24) + '...', true);
@@ -1009,7 +1091,7 @@ async function saveGeneralSettings() {
     };
     const res = await fetch(API + '/api/admin/settings', {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'x-admin-pin': authPin },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
       body: JSON.stringify(data)
     }).then(r => { if (!r.ok) throw new Error('Save failed'); return r.json(); });
     showMsg('settingsMsg', 'Settings saved!', true);
@@ -1052,7 +1134,7 @@ async function loadSummary() {
     if (from) params.append('from', from);
     if (to) params.append('to', to);
     if (gw) params.append('gateway', gw);
-    const s = await fetch(API + '/api/admin/transactions/summary?' + params, { headers: { 'x-admin-pin': authPin } }).then(r => r.json());
+    const s = await fetch(API + '/api/admin/transactions/summary?' + params, { headers: { 'Authorization': 'Bearer ' + authToken } }).then(r => r.json());
     document.getElementById('rPaid').textContent = s.paid || 0;
     document.getElementById('rTotal').textContent = s.total || 0;
     document.getElementById('rAmount').textContent = 'RM ' + (s.totalAmount || 0).toFixed(2);
@@ -1072,7 +1154,7 @@ async function loadReport(offset) {
   if (gw) params.append('gateway', gw);
   if (st) params.append('status', st);
   try {
-    const r = await fetch(API + '/api/admin/transactions?' + params, { headers: { 'x-admin-pin': authPin } }).then(r => r.json());
+    const r = await fetch(API + '/api/admin/transactions?' + params, { headers: { 'Authorization': 'Bearer ' + authToken } }).then(r => r.json());
     reportTotal = r.total || 0;
     const gwN = { duitnow: 'J&C', ampersandpay: 'AP', ecpi: 'ECPI' };
     const body = document.getElementById('txTableBody');
@@ -1146,7 +1228,7 @@ async function qrCreate() {
   // Activate the selected profile first
   try {
     await fetch(API + '/api/admin/profiles/' + encodeURIComponent(profileName) + '/load', {
-      headers: { 'x-admin-pin': authPin }
+      headers: { 'Authorization': 'Bearer ' + authToken }
     }).then(r => r.json());
     currentActive = profileName;
   } catch(e) { showMsg('qrTestMsg', 'Failed to activate profile: ' + e.message, false); return; }
@@ -1525,7 +1607,7 @@ async function calcGenerateQR(profileName, amount) {
   // Activate profile
   try {
     await fetch(API + '/api/admin/profiles/' + encodeURIComponent(profileName) + '/load', {
-      headers: { 'x-admin-pin': authPin }
+      headers: { 'Authorization': 'Bearer ' + authToken }
     }).then(r => r.json());
     currentActive = profileName;
   } catch(e) { showMsg('calcMsg', 'Failed to activate profile: ' + e.message, false); return; }
@@ -1663,6 +1745,98 @@ function calcReset() {
   document.getElementById('calcQrResult').style.display = 'none';
   document.getElementById('calcQrLog').innerHTML = '';
   calcUpdateDisplay();
+}
+
+// ── Users Tab ──────────────────────────────────────────────────────────
+async function refreshUsers() {
+  try {
+    const res = await fetch(API + '/api/admin/users', {
+      headers: { 'Authorization': 'Bearer ' + authToken }
+    }).then(r => r.json());
+    allUsers = res.users || [];
+    renderUserTable();
+  } catch(e) {}
+}
+
+function renderUserTable() {
+  const body = document.getElementById('userTableBody');
+  if (!allUsers.length) {
+    body.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#888;padding:20px">No users yet.</td></tr>';
+    return;
+  }
+  body.innerHTML = allUsers.map(u => {
+    const isSelf = u.username === currentUsername;
+    const roleChip = u.role === 'admin'
+      ? '<span class="chip chip-admin">ADMIN</span>'
+      : '<span class="chip chip-cashier">CASHIER</span>';
+    const safeName = u.username.replace(/'/g, "\\'");
+    return `<tr>
+      <td><b>${u.username}</b>${isSelf ? ' <span class="chip chip-active">YOU</span>' : ''}</td>
+      <td>${roleChip}</td>
+      <td style="text-align:center;white-space:nowrap">
+        <button class="btn-sm btn-sm-edit" onclick="openUserForm('${safeName}')">Edit</button>
+        ${!isSelf ? `<button class="btn-sm btn-sm-del" style="margin-left:4px" onclick="deleteUser('${safeName}')">Del</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openUserForm(username) {
+  editingUser = username || null;
+  const isNew = !editingUser;
+  document.getElementById('userFormTitle').textContent = isNew ? 'New User' : 'Edit User';
+  document.getElementById('fUserUsername').value = username || '';
+  document.getElementById('fUserUsername').disabled = !isNew;
+  document.getElementById('fUserPasswordLabel').textContent = isNew ? 'Password' : 'New Password (leave blank to keep)';
+  document.getElementById('fUserPassword').value = '';
+  document.getElementById('fUserPassword').placeholder = isNew ? 'Password' : '(unchanged)';
+  const user = allUsers.find(u => u.username === username);
+  document.getElementById('fUserRole').value = (user && user.role) || 'cashier';
+  document.getElementById('userForm').style.display = 'block';
+  document.getElementById('fUserUsername').focus();
+}
+
+function closeUserForm() {
+  editingUser = null;
+  document.getElementById('userForm').style.display = 'none';
+}
+
+async function saveUser() {
+  const username = document.getElementById('fUserUsername').value.trim();
+  const password = document.getElementById('fUserPassword').value;
+  const role = document.getElementById('fUserRole').value;
+  if (!username) { showMsg('usersMsg', 'Username is required', false); return; }
+  if (!editingUser && !password) { showMsg('usersMsg', 'Password is required for new users', false); return; }
+  const body = { username, role };
+  if (password) body.password = password;
+  try {
+    const res = await fetch(API + '/api/admin/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+      body: JSON.stringify(body)
+    }).then(r => r.json());
+    if (!res.ok) throw new Error(res.error || 'Save failed');
+    closeUserForm();
+    await refreshUsers();
+    showMsg('usersMsg', 'User saved', true);
+  } catch(e) {
+    showMsg('usersMsg', e.message, false);
+  }
+}
+
+async function deleteUser(username) {
+  if (!confirm('Delete user "' + username + '"?')) return;
+  try {
+    const res = await fetch(API + '/api/admin/users/' + encodeURIComponent(username), {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + authToken }
+    }).then(r => r.json());
+    if (!res.ok) throw new Error(res.error || 'Delete failed');
+    await refreshUsers();
+    showMsg('usersMsg', 'User deleted', true);
+  } catch(e) {
+    showMsg('usersMsg', e.message, false);
+  }
 }
 </script>
 </body>

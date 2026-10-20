@@ -2,11 +2,13 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const QRCode = require('qrcode');
 const { WebSocketServer } = require('ws');
 const { getGateway } = require('./index');
 const { generateSignature } = require('./lib/signature');
 const settings = require('./lib/settings');
+const usersLib = require('./lib/users');
 
 const db = require('./lib/db');
 const { mytNow } = db;
@@ -37,14 +39,79 @@ function broadcastToPos(data) {
 }
 
 // ================================================================
-// Admin PIN middleware
+// Auth: token store + middleware
 // ================================================================
-function requirePin(req, res, next) {
-  const pin = req.headers['x-admin-pin'];
-  const current = settings.load();
-  if (!current.adminPin || pin === current.adminPin) return next();
-  res.status(401).json({ error: 'Wrong PIN' });
+const sessions = new Map(); // token -> { username, role, expires }
+
+function createSession(username, role) {
+  const token = crypto.randomBytes(32).toString('hex');
+  sessions.set(token, { username, role, expires: Date.now() + 24 * 60 * 60 * 1000 });
+  return token;
 }
+
+function requireAuth(req, res, next) {
+  // Legacy PIN header (backward compat)
+  const pin = req.headers['x-admin-pin'];
+  if (pin) {
+    const s = settings.load();
+    if (!s.adminPin || pin === s.adminPin) { req.userRole = 'admin'; req.username = 'admin'; return next(); }
+  }
+  // Bearer token
+  const auth = req.headers['authorization'] || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+  if (token && sessions.has(token)) {
+    const sess = sessions.get(token);
+    if (sess.expires > Date.now()) { req.userRole = sess.role; req.username = sess.username; return next(); }
+    sessions.delete(token);
+  }
+  res.status(401).json({ error: 'Unauthorized' });
+}
+
+function requireAdmin(req, res, next) {
+  requireAuth(req, res, () => {
+    if (req.userRole !== 'admin') return res.status(403).json({ error: 'Admin access required' });
+    next();
+  });
+}
+
+// Alias for backward compat with existing route code
+const requirePin = requireAdmin;
+
+// ================================================================
+// Auth endpoints
+// ================================================================
+app.post('/api/auth/login', (req, res) => {
+  const { username, password } = req.body || {};
+  if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+  const user = usersLib.authenticate(username, password);
+  if (!user) return res.status(401).json({ error: 'Invalid username or password' });
+  const token = createSession(user.username, user.role);
+  console.log(`[AUTH] Login: ${user.username} (${user.role})`);
+  res.json({ ok: true, token, role: user.role, username: user.username });
+});
+
+// ================================================================
+// User management (admin only)
+// ================================================================
+app.get('/api/admin/users', requireAdmin, (req, res) => {
+  res.json({ users: usersLib.getAll() });
+});
+
+app.post('/api/admin/users', requireAdmin, (req, res) => {
+  const { username, password, role } = req.body || {};
+  if (!username) return res.status(400).json({ error: 'Username required' });
+  if (!['admin', 'cashier'].includes(role)) return res.status(400).json({ error: 'Role must be admin or cashier' });
+  usersLib.upsert(username, password, role);
+  console.log(`[USERS] Upsert: ${username} (${role}) by ${req.username}`);
+  res.json({ ok: true });
+});
+
+app.delete('/api/admin/users/:username', requireAdmin, (req, res) => {
+  const ok = usersLib.remove(req.params.username);
+  if (!ok) return res.status(400).json({ error: 'Cannot delete the last admin account' });
+  console.log(`[USERS] Deleted: ${req.params.username} by ${req.username}`);
+  res.json({ ok: true });
+});
 
 // ================================================================
 // Admin Settings API
@@ -478,7 +545,7 @@ app.put('/api/admin/version', requirePin, (req, res) => {
 // ================================================================
 // Transactions Report API
 // ================================================================
-app.get('/api/admin/transactions', requirePin, (req, res) => {
+app.get('/api/admin/transactions', requireAuth, (req, res) => {
   try {
     const { limit, offset, gateway, status, from, to, terminal } = req.query;
     const result = db.query({ limit: parseInt(limit)||50, offset: parseInt(offset)||0, gateway, status, from, to, terminal });
@@ -486,7 +553,7 @@ app.get('/api/admin/transactions', requirePin, (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/admin/transactions/summary', requirePin, (req, res) => {
+app.get('/api/admin/transactions/summary', requireAuth, (req, res) => {
   try {
     const { gateway, from, to, terminal } = req.query;
     res.json(db.summary({ gateway: gateway || '', from: from || '', to: to || '', terminal: terminal || '' }));
