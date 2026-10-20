@@ -721,6 +721,11 @@ async function doLogin() {
       currentActive = cfg.activeProfile || '';
       calcTxRunningNo = parseInt(cfg.txRunningNo) || 1;
       await refreshProfiles();
+      if (!currentActive || !allProfiles[currentActive]) {
+        authToken = ''; currentRole = ''; currentUsername = '';
+        showMsg('loginMsg', 'No active profile configured. Please ask admin to set an active profile first.', false);
+        return;
+      }
       switchTab('calc');
     }
 
