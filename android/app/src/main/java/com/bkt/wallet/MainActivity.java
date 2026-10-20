@@ -252,8 +252,8 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadServerUrl() {
         String base = prefs.getString(KEY_URL, DEFAULT_URL);
-        // Always start on admin panel
-        String url = base.replaceAll("/+$", "") + "/admin";
+        // Always start on admin panel; append timestamp to bust any WebView cache
+        String url = base.replaceAll("/+$", "") + "/admin?v=" + System.currentTimeMillis();
         if (!isNetworkAvailable()) {
             errorView.setVisibility(View.VISIBLE);
             ((TextView) findViewById(R.id.tvErrorUrl)).setText(url);
