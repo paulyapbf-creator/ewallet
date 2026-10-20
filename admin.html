@@ -630,7 +630,8 @@
   <div id="calcQrResult" style="display:none;width:100%;max-width:420px;background:#1c1c1e;border-radius:20px;padding:32px 24px;text-align:center">
     <div style="font-size:64px;margin-bottom:8px" id="calcQrResultIcon"></div>
     <div style="font-size:22px;font-weight:700;margin-bottom:8px" id="calcQrResultTitle"></div>
-    <div style="font-size:14px;color:#888;margin-bottom:24px" id="calcQrResultMsg"></div>
+    <div style="font-size:14px;color:#888;margin-bottom:6px" id="calcQrResultMsg"></div>
+    <div id="calcQrResultTxNo" style="font-size:13px;font-family:monospace;color:#ffd60a;margin-bottom:20px"></div>
     <button onclick="calcReset()" style="width:100%;padding:14px;background:#30d158;color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer">New Calculation</button>
   </div>
 </div>
@@ -703,6 +704,7 @@ async function doLogin() {
         headers: { 'Authorization': 'Bearer ' + authToken }
       }).then(r => r.json());
       currentActive = settings.activeProfile || '';
+      calcTxRunningNo = parseInt(settings.txRunningNo) || 1;
       populateSettingsForm(settings);
       await refreshProfiles();
       populateTestDropdown();
@@ -712,6 +714,7 @@ async function doLogin() {
       // Cashier: load profiles for Calc tab
       const cfg = await fetch(API + '/api/config').then(r => r.json());
       currentActive = cfg.activeProfile || '';
+      calcTxRunningNo = parseInt(cfg.txRunningNo) || 1;
       await refreshProfiles();
       switchTab('calc');
     }
@@ -1442,6 +1445,7 @@ document.getElementById('loginUsername').focus();
 
 // ── Calculator Tab ─────────────────────────────────────────────────────
 // POS decimal-ready input: digits shift right, display = calcRawStr / 100
+var calcTxRunningNo = 1;     // current running transaction number (fetched from server)
 let calcRawStr = '';         // digit string (e.g. "150" → RM 1.50)
 let calcPrevVal = null;      // previous operand (float)
 let calcPendingOp = null;    // '+', '-', '×', '÷'
@@ -1666,7 +1670,7 @@ async function calcGenerateQR(profileName, amount) {
   try {
     const res = await fetch(API + '/api/payment/' + gw + '/create', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount, referenceNo: ref, terminalCode: p.terminalCode || 'CALC-TEST', txRunningNo: 0 })
+      body: JSON.stringify({ amount, referenceNo: ref, terminalCode: p.terminalCode || 'CALC-TEST', txRunningNo: calcTxRunningNo })
     }).then(r => r.json());
 
     if (!res.success && !res.checkoutUrl) {
@@ -1714,7 +1718,7 @@ function calcStartPolling(ref, extRef, gw, terminalCode) {
         body: JSON.stringify({ referenceNo: ref, externalRefNo: extRef, terminalCode })
       }).then(r => r.json());
       calcLog('Check #' + attempt + ': ' + (res.status || '?'), res.success ? 'ok' : 'warn');
-      if (res.success && !calcQrResolved) { calcQrResolved = true; calcStopTimer(); calcShowResult(true, 'RM ' + parseFloat(res.amount || 0).toFixed(2) + ' paid'); }
+      if (res.success && !calcQrResolved) { calcQrResolved = true; calcStopTimer(); calcOnPaid(ref, extRef, 'poll', parseFloat(res.amount || 0)); }
       else if (!calcQrResolved && (res.status === 'failed' || res.status === 'error')) { calcQrResolved = true; calcStopTimer(); calcShowResult(false, res.message || 'Payment failed'); }
       else if (!calcQrResolved) setTimeout(doCheck, 3000);
     } catch(e) {
@@ -1749,15 +1753,29 @@ function calcStopTimer() {
   if (calcQrTimerHandle) { clearTimeout(calcQrTimerHandle); calcQrTimerHandle = null; }
 }
 
-function calcShowResult(success, msg) {
+function calcShowResult(success, msg, txNo) {
   document.getElementById('calcQrArea').style.display = 'none';
   document.getElementById('calcQrResult').style.display = 'block';
-  // Keep modal open to show result
   document.getElementById('calcQrResultIcon').textContent = success ? '✓' : '✗';
   document.getElementById('calcQrResultIcon').style.color = success ? '#30d158' : '#ff453a';
   document.getElementById('calcQrResultTitle').textContent = success ? 'Payment Successful' : 'Payment Failed';
   document.getElementById('calcQrResultTitle').style.color = success ? '#30d158' : '#ff453a';
   document.getElementById('calcQrResultMsg').textContent = msg || '';
+  document.getElementById('calcQrResultTxNo').textContent = txNo ? 'Txn # ' + String(txNo).padStart(6, '0') : '';
+}
+
+async function calcOnPaid(ref, extRef, method, amount) {
+  const usedTxNo = calcTxRunningNo;
+  try {
+    const r = await fetch(API + '/api/txno/increment', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+      body: JSON.stringify({ referenceNo: ref, externalRefNo: extRef, method })
+    }).then(r => r.json());
+    calcTxRunningNo = r.txRunningNo || (usedTxNo + 1);
+  } catch(e) {
+    calcTxRunningNo = usedTxNo + 1;
+  }
+  calcShowResult(true, 'RM ' + amount.toFixed(2) + ' paid', usedTxNo);
 }
 
 async function calcQrCancel(silent) {
