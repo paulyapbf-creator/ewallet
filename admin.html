@@ -467,18 +467,18 @@
 
       <!-- ── CALC TAB ── -->
       <div id="tabCalc" class="tab-content" style="display:none">
-        <div class="field" style="margin-bottom:10px">
-          <label>Profile</label>
-          <select id="calcProfileSelect" onchange="onCalcProfileChange(this.value)">
-            <option value="">-- Select Profile --</option>
-          </select>
-        </div>
         <div id="calcMsg" class="msg"></div>
 
         <div class="calc-wrap">
+          <!-- Active profile badge + menu button -->
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px 6px">
+            <div id="calcProfileBadge" style="font-size:11px;color:#555;font-family:monospace">—</div>
+            <button onclick="calcOpenMenu()" style="background:none;border:none;color:#555;font-size:20px;cursor:pointer;padding:4px 6px;line-height:1">☰</button>
+          </div>
+
           <div class="calc-display">
             <div class="calc-expr" id="calcExprDisplay"></div>
-            <div class="calc-main" id="calcMainDisplay">0</div>
+            <div class="calc-main" id="calcMainDisplay">0.00</div>
           </div>
           <div class="calc-hint" id="calcHint">Press <b>=</b> to calculate &nbsp;·&nbsp; Press <b>=</b> again to pay</div>
 
@@ -504,9 +504,9 @@
             <button class="calc-btn num" onclick="calcBtn('3')">3</button>
             <button class="calc-btn op" onclick="calcBtn('+')">+</button>
             <!-- Row 5 -->
-            <button class="calc-btn op" onclick="calcBtn('()')">( )</button>
+            <button class="calc-btn op" onclick="calcBtn('+/-')">+/−</button>
             <button class="calc-btn num" onclick="calcBtn('0')">0</button>
-            <button class="calc-btn num" onclick="calcBtn('.')">.</button>
+            <button class="calc-btn num" onclick="calcBtn('00')">00</button>
             <button class="calc-btn eq" id="calcEqBtn" onclick="calcBtn('=')">=</button>
           </div>
 
@@ -643,9 +643,16 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(b => {
     b.classList.toggle('active', b.textContent.toLowerCase().replace(' ','') === tab.toLowerCase());
   });
+  // Hide tab bar on Calc tab; show it on all others
+  document.querySelector('.tab-bar').style.display = tab === 'calc' ? 'none' : '';
   if (tab === 'reports') { loadSummary(); loadReport(0); }
   if (tab === 'qrtest') { populateQrTestDropdown(); }
-  if (tab === 'calc') { populateCalcDropdown(); }
+  if (tab === 'calc') { updateCalcBadge(); }
+}
+
+function calcOpenMenu() {
+  document.querySelector('.tab-bar').style.display = '';
+  switchTab('profiles');
 }
 
 // ── Profiles ──────────────────────────────────────────────────────────
@@ -1325,24 +1332,25 @@ function qrReset() {
 document.getElementById('pinInput').focus();
 
 // ── Calculator Tab ─────────────────────────────────────────────────────
-let calcExpr = '';          // expression being built
-let calcResultReady = false; // true after first = is pressed
+// POS decimal-ready input: digits shift right, display = calcRawStr / 100
+let calcRawStr = '';         // digit string (e.g. "150" → RM 1.50)
+let calcPrevVal = null;      // previous operand (float)
+let calcPendingOp = null;    // '+', '-', '×', '÷'
+let calcResultReady = false; // true after = pressed (ready to pay on second =)
 let calcFinalValue = 0;      // evaluated result
 let calcQrResolved = false;
 let calcQrTimerHandle = null;
-let calcOpenParens = 0;
 
-function populateCalcDropdown() {
-  const sel = document.getElementById('calcProfileSelect');
-  const names = Object.keys(allProfiles);
-  sel.innerHTML = '<option value="">-- Select Profile --</option>' +
-    names.map(n => `<option value="${n}"${n === currentActive ? ' selected' : ''}>${n}${n === currentActive ? ' ★' : ''}</option>`).join('');
-  if (currentActive) sel.value = currentActive;
-}
-
-function onCalcProfileChange(name) {
-  // Reset QR area when profile changes
-  calcQrCancel(true);
+function updateCalcBadge() {
+  const el = document.getElementById('calcProfileBadge');
+  if (!el) return;
+  if (currentActive) {
+    el.textContent = '⬤ ' + currentActive;
+    el.style.color = '#30d158';
+  } else {
+    el.textContent = '— no active profile';
+    el.style.color = '#ff453a';
+  }
 }
 
 function calcLog(msg, type) {
@@ -1353,21 +1361,41 @@ function calcLog(msg, type) {
   el.scrollTop = el.scrollHeight;
 }
 
+function calcCurrentVal() {
+  return parseInt(calcRawStr || '0') / 100;
+}
+
 function calcUpdateDisplay() {
   const mainEl = document.getElementById('calcMainDisplay');
   const exprEl = document.getElementById('calcExprDisplay');
   if (calcResultReady) {
     mainEl.textContent = 'RM ' + calcFinalValue.toFixed(2);
     mainEl.className = 'calc-main result';
-    exprEl.textContent = calcExpr + ' =';
+    exprEl.textContent = '';
     document.getElementById('calcHint').innerHTML = 'Press <b style="color:#e31837">=</b> to generate QR payment';
     document.getElementById('calcEqBtn').classList.add('pay');
   } else {
-    mainEl.textContent = calcExpr || '0';
+    const cur = calcCurrentVal();
+    mainEl.textContent = 'RM ' + cur.toFixed(2);
     mainEl.className = 'calc-main';
-    exprEl.textContent = '';
+    // Show pending expression above
+    if (calcPrevVal !== null && calcPendingOp) {
+      exprEl.textContent = 'RM ' + calcPrevVal.toFixed(2) + ' ' + calcPendingOp;
+    } else {
+      exprEl.textContent = '';
+    }
     document.getElementById('calcHint').innerHTML = 'Press <b>=</b> to calculate &nbsp;·&nbsp; Press <b>=</b> again to pay';
     document.getElementById('calcEqBtn').classList.remove('pay');
+  }
+}
+
+function calcApplyOp(a, b, op) {
+  switch (op) {
+    case '+': return a + b;
+    case '-': return a - b;
+    case '×': return a * b;
+    case '÷': return b !== 0 ? a / b : 0;
+    default:  return b;
   }
 }
 
@@ -1379,81 +1407,111 @@ function calcBtn(val) {
   }
 
   if (val === 'C') {
-    calcExpr = ''; calcResultReady = false; calcFinalValue = 0; calcOpenParens = 0;
+    calcRawStr = ''; calcPrevVal = null; calcPendingOp = null;
+    calcResultReady = false; calcFinalValue = 0;
     calcUpdateDisplay(); return;
   }
 
   if (val === '⌫') {
-    if (calcResultReady) { calcExpr = ''; calcResultReady = false; calcUpdateDisplay(); return; }
-    const last = calcExpr.slice(-1);
-    if (last === '(') calcOpenParens--;
-    if (last === ')') calcOpenParens++;
-    calcExpr = calcExpr.slice(0, -1);
+    if (calcResultReady) {
+      calcResultReady = false; calcRawStr = ''; calcPrevVal = null; calcPendingOp = null;
+    } else {
+      calcRawStr = calcRawStr.slice(0, -1);
+    }
     calcUpdateDisplay(); return;
   }
 
+  // Digit input (0-9)
+  if (/^[0-9]$/.test(val)) {
+    if (calcResultReady) {
+      // Start fresh after result
+      calcResultReady = false; calcPrevVal = null; calcPendingOp = null; calcRawStr = '';
+    }
+    if (calcRawStr.length < 10) calcRawStr += val;
+    calcUpdateDisplay(); return;
+  }
+
+  // Double-zero
+  if (val === '00') {
+    if (calcResultReady) {
+      calcResultReady = false; calcPrevVal = null; calcPendingOp = null; calcRawStr = '';
+    }
+    if (calcRawStr.length < 9) calcRawStr += '00';
+    calcUpdateDisplay(); return;
+  }
+
+  // Percent — divide current entry by 100
+  if (val === '%') {
+    if (calcResultReady) {
+      calcFinalValue = Math.round(calcFinalValue) / 100;
+      calcFinalValue = Math.round(calcFinalValue * 100) / 100;
+    } else {
+      const cur = calcCurrentVal();
+      const pct = Math.round(cur / 100 * 100) / 100;
+      calcRawStr = String(Math.round(pct * 100));
+    }
+    calcUpdateDisplay(); return;
+  }
+
+  // Negate
+  if (val === '+/-') {
+    if (calcResultReady) {
+      calcFinalValue = -calcFinalValue;
+    } else if (calcRawStr.startsWith('-')) {
+      calcRawStr = calcRawStr.slice(1);
+    } else if (calcRawStr !== '' && calcRawStr !== '0') {
+      calcRawStr = '-' + calcRawStr;
+    }
+    calcUpdateDisplay(); return;
+  }
+
+  // Operator (+, -, ×, ÷)
+  if (['+', '-', '×', '÷'].includes(val)) {
+    if (calcResultReady) {
+      // Chain from result
+      calcPrevVal = calcFinalValue;
+      calcPendingOp = val;
+      calcRawStr = '';
+      calcResultReady = false;
+    } else if (calcPendingOp !== null && calcRawStr !== '') {
+      // Compute running total and chain
+      const cur = calcCurrentVal();
+      calcPrevVal = Math.round(calcApplyOp(calcPrevVal, cur, calcPendingOp) * 100) / 100;
+      calcPendingOp = val;
+      calcRawStr = '';
+    } else {
+      calcPrevVal = calcCurrentVal();
+      calcPendingOp = val;
+      calcRawStr = '';
+    }
+    calcUpdateDisplay(); return;
+  }
+
+  // Equals
   if (val === '=') {
     if (calcResultReady) {
-      // Second = → generate QR
-      const profileName = document.getElementById('calcProfileSelect').value;
-      if (!profileName) { showMsg('calcMsg', 'Select a profile first', false); return; }
+      // Second = → generate QR payment
+      if (!currentActive) { showMsg('calcMsg', 'No active profile — tap ☰ to select one', false); return; }
       if (calcFinalValue <= 0) { showMsg('calcMsg', 'Amount must be greater than 0', false); return; }
-      calcGenerateQR(profileName, calcFinalValue);
+      calcGenerateQR(currentActive, calcFinalValue);
       return;
     }
-    if (!calcExpr) return;
-    try {
-      // Close any open parentheses
-      let expr = calcExpr + ')'.repeat(calcOpenParens);
-      expr = expr.replace(/×/g, '*').replace(/÷/g, '/');
-      // Handle % as /100 when not after operator
-      expr = expr.replace(/(\d+\.?\d*)%/g, '($1/100)');
-      const result = Function('"use strict"; return (' + expr + ')')();
-      if (!isFinite(result) || isNaN(result)) throw new Error('Invalid');
-      calcFinalValue = Math.round(result * 100) / 100;
-      calcResultReady = true;
-    } catch(e) {
-      document.getElementById('calcMainDisplay').textContent = 'Error';
-      document.getElementById('calcMainDisplay').className = 'calc-main';
-      document.getElementById('calcExprDisplay').textContent = calcExpr;
-      calcExpr = ''; calcOpenParens = 0;
+    let result;
+    if (calcPendingOp !== null) {
+      const cur = calcCurrentVal();
+      result = calcApplyOp(calcPrevVal, cur, calcPendingOp);
+    } else {
+      result = calcCurrentVal();
+    }
+    if (!isFinite(result) || isNaN(result) || result <= 0) {
+      document.getElementById('calcMainDisplay').textContent = result <= 0 ? 'RM 0.00' : 'Error';
+      calcRawStr = ''; calcPrevVal = null; calcPendingOp = null;
       return;
     }
+    calcFinalValue = Math.round(result * 100) / 100;
+    calcResultReady = true;
+    calcPrevVal = null; calcPendingOp = null; calcRawStr = '';
     calcUpdateDisplay(); return;
-  }
-
-  // After result, if digit/dot pressed: start fresh; if operator: chain
-  if (calcResultReady) {
-    if (['+', '-', '×', '÷'].includes(val)) {
-      calcExpr = calcFinalValue.toString() + val;
-    } else {
-      calcExpr = '';
-      calcOpenParens = 0;
-    }
-    calcResultReady = false;
-  }
-
-  if (val === '()') {
-    // Smart parenthesis: open if no open, or last char is operator; else close
-    const last = calcExpr.slice(-1);
-    if (calcOpenParens === 0 || last === '(' || last === '+' || last === '-' || last === '×' || last === '÷' || last === '') {
-      calcExpr += '('; calcOpenParens++;
-    } else {
-      calcExpr += ')'; calcOpenParens--;
-    }
-  } else if (val === '%') {
-    calcExpr += '%';
-  } else {
-    // Prevent double dot
-    if (val === '.') {
-      const parts = calcExpr.split(/[\+\-\×\÷\(\)]/);
-      if (parts[parts.length - 1].includes('.')) return;
-    }
-    // Prevent leading zero (0x → x)
-    if (val !== '.' && calcExpr.match(/(^|[\+\-\×\÷\(])0$/)) {
-      calcExpr = calcExpr.slice(0, -1);
-    }
-    calcExpr += val;
   }
 
   calcUpdateDisplay();
@@ -1598,7 +1656,8 @@ async function calcQrCancel(silent) {
 
 function calcReset() {
   calcStopTimer();
-  calcExpr = ''; calcResultReady = false; calcFinalValue = 0; calcQrResolved = false; calcOpenParens = 0;
+  calcRawStr = ''; calcPrevVal = null; calcPendingOp = null;
+  calcResultReady = false; calcFinalValue = 0; calcQrResolved = false;
   document.getElementById('calcQrModal').style.display = 'none';
   document.getElementById('calcQrArea').style.display = 'none';
   document.getElementById('calcQrResult').style.display = 'none';
