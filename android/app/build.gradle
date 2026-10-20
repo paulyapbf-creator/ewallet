@@ -9,8 +9,8 @@ android {
         applicationId "com.bkt.wallet"
         minSdk 21
         targetSdk 34
-        versionCode 58
-        versionName "1.0.57"
+        versionCode 59
+        versionName "1.0.58"
     }
 
     buildTypes {
