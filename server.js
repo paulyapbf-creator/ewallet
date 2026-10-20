@@ -129,11 +129,11 @@ app.put('/api/admin/settings', requirePin, (req, res) => {
 });
 
 // --- Profiles API ---
-app.get('/api/admin/profiles', requirePin, (req, res) => {
+app.get('/api/admin/profiles', requireAuth, (req, res) => {
   res.json({ profiles: settings.listProfiles() });
 });
 
-app.get('/api/admin/profiles/all', requirePin, (req, res) => {
+app.get('/api/admin/profiles/all', requireAuth, (req, res) => {
   res.json({ profiles: settings.loadProfiles() });
 });
 
@@ -178,7 +178,7 @@ app.post('/api/admin/profiles/:name', requirePin, (req, res) => {
   res.json({ success: true, profiles: settings.listProfiles() });
 });
 
-app.get('/api/admin/profiles/:name/load', requirePin, (req, res) => {
+app.get('/api/admin/profiles/:name/load', requireAuth, (req, res) => {
   const profile = settings.loadProfile(req.params.name);
   if (!profile) return res.status(404).json({ error: 'Profile not found' });
   // Only apply fields for the profile's own gateway + general fields.

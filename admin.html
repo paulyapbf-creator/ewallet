@@ -687,7 +687,7 @@ async function doLogin() {
 
     // Show admin-only tabs if admin
     document.querySelectorAll('.admin-tab').forEach(b => {
-      b.style.display = currentRole === 'admin' ? '' : 'none';
+      b.style.display = currentRole === 'admin' ? 'block' : 'none';
     });
 
     // Load settings (admin) or skip to test tab (cashier)
@@ -702,9 +702,11 @@ async function doLogin() {
       setCallbackUrls();
       switchTab('profiles');
     } else {
-      // Cashier: load active profile info only
+      // Cashier: load profiles for Test/Calc tabs
       const cfg = await fetch(API + '/api/config').then(r => r.json());
       currentActive = cfg.activeProfile || '';
+      await refreshProfiles();
+      populateTestDropdown();
       switchTab('test');
     }
 
