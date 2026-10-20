@@ -495,30 +495,30 @@
 
           <div class="calc-grid" id="calcGrid">
             <!-- Row 1 -->
-            <button class="calc-btn fn"  data-val="C">C</button>
-            <button class="calc-btn op"  data-val="⌫">⌫</button>
-            <button class="calc-btn op"  data-val="%">%</button>
-            <button class="calc-btn op"  data-val="÷">÷</button>
+            <button class="calc-btn fn"  onclick="calcBtn('C')">C</button>
+            <button class="calc-btn op"  onclick="calcBtn('back')">⌫</button>
+            <button class="calc-btn op"  onclick="calcBtn('%')">%</button>
+            <button class="calc-btn op"  onclick="calcBtn('/')">÷</button>
             <!-- Row 2 -->
-            <button class="calc-btn num" data-val="7">7</button>
-            <button class="calc-btn num" data-val="8">8</button>
-            <button class="calc-btn num" data-val="9">9</button>
-            <button class="calc-btn op"  data-val="×">×</button>
+            <button class="calc-btn num" onclick="calcBtn('7')">7</button>
+            <button class="calc-btn num" onclick="calcBtn('8')">8</button>
+            <button class="calc-btn num" onclick="calcBtn('9')">9</button>
+            <button class="calc-btn op"  onclick="calcBtn('*')">×</button>
             <!-- Row 3 -->
-            <button class="calc-btn num" data-val="4">4</button>
-            <button class="calc-btn num" data-val="5">5</button>
-            <button class="calc-btn num" data-val="6">6</button>
-            <button class="calc-btn op"  data-val="-">−</button>
+            <button class="calc-btn num" onclick="calcBtn('4')">4</button>
+            <button class="calc-btn num" onclick="calcBtn('5')">5</button>
+            <button class="calc-btn num" onclick="calcBtn('6')">6</button>
+            <button class="calc-btn op"  onclick="calcBtn('-')">−</button>
             <!-- Row 4 -->
-            <button class="calc-btn num" data-val="1">1</button>
-            <button class="calc-btn num" data-val="2">2</button>
-            <button class="calc-btn num" data-val="3">3</button>
-            <button class="calc-btn op"  data-val="+">+</button>
+            <button class="calc-btn num" onclick="calcBtn('1')">1</button>
+            <button class="calc-btn num" onclick="calcBtn('2')">2</button>
+            <button class="calc-btn num" onclick="calcBtn('3')">3</button>
+            <button class="calc-btn op"  onclick="calcBtn('+')">+</button>
             <!-- Row 5 -->
-            <button class="calc-btn op"  data-val="+/-">+/−</button>
-            <button class="calc-btn num" data-val="0">0</button>
-            <button class="calc-btn num" data-val="00">00</button>
-            <button class="calc-btn eq"  data-val="=" id="calcEqBtn">=</button>
+            <button class="calc-btn op"  onclick="calcBtn('neg')">+/−</button>
+            <button class="calc-btn num" onclick="calcBtn('0')">0</button>
+            <button class="calc-btn num" onclick="calcBtn('00')">00</button>
+            <button class="calc-btn eq"  onclick="calcBtn('=')" id="calcEqBtn">=</button>
           </div>
 
         </div>
@@ -749,7 +749,13 @@ function switchTab(tab) {
   document.querySelector('.tab-bar').style.display = tab === 'calc' ? 'none' : '';
   if (tab === 'reports') { loadSummary(); loadReport(0); }
   if (tab === 'qrtest') { populateQrTestDropdown(); }
-  if (tab === 'calc') { updateCalcBadge(); calcUpdateDisplay(); }
+  if (tab === 'calc') {
+    updateCalcBadge();
+    try { calcUpdateDisplay(); } catch(e) {
+      var d = document.getElementById('calcMainDisplay');
+      if (d) d.textContent = 'ERR:' + e.message;
+    }
+  }
   if (tab === 'users') { refreshUsers(); }
 }
 
@@ -1445,16 +1451,6 @@ let calcQrResolved = false;
 let calcQrTimerHandle = null;
 let calcQrOpen = false;      // true while QR modal is showing
 
-// Wire up calc grid via event delegation (more reliable than inline onclick)
-document.addEventListener('DOMContentLoaded', function() {
-  const grid = document.getElementById('calcGrid');
-  if (grid) {
-    grid.addEventListener('click', function(e) {
-      const btn = e.target.closest('[data-val]');
-      if (btn) calcBtn(btn.getAttribute('data-val'));
-    });
-  }
-});
 
 function updateCalcBadge() {
   const el = document.getElementById('calcProfileBadge');
@@ -1495,7 +1491,8 @@ function calcUpdateDisplay() {
     mainEl.className = 'calc-main';
     // Show pending expression above
     if (calcPrevVal !== null && calcPendingOp) {
-      exprEl.textContent = 'RM ' + calcPrevVal.toFixed(2) + ' ' + calcPendingOp;
+      const opDisp = {'+':'+', '-':'−', '*':'×', '/':'÷'}[calcPendingOp] || calcPendingOp;
+      exprEl.textContent = 'RM ' + calcPrevVal.toFixed(2) + ' ' + opDisp;
     } else {
       exprEl.textContent = '';
     }
@@ -1508,8 +1505,8 @@ function calcApplyOp(a, b, op) {
   switch (op) {
     case '+': return a + b;
     case '-': return a - b;
-    case '×': return a * b;
-    case '÷': return b !== 0 ? a / b : 0;
+    case '*': return a * b;
+    case '/': return b !== 0 ? a / b : 0;
     default:  return b;
   }
 }
@@ -1533,7 +1530,7 @@ function _calcBtn(val) {
     calcUpdateDisplay(); return;
   }
 
-  if (val === '⌫') {
+  if (val === 'back') {
     if (calcResultReady) {
       calcResultReady = false; calcRawStr = ''; calcPrevVal = null; calcPendingOp = null;
     } else {
@@ -1575,7 +1572,7 @@ function _calcBtn(val) {
   }
 
   // Negate
-  if (val === '+/-') {
+  if (val === 'neg') {
     if (calcResultReady) {
       calcFinalValue = -calcFinalValue;
     } else if (calcRawStr.startsWith('-')) {
@@ -1587,7 +1584,7 @@ function _calcBtn(val) {
   }
 
   // Operator (+, -, ×, ÷)
-  if (['+', '-', '×', '÷'].includes(val)) {
+  if (['+', '-', '*', '/'].includes(val)) {
     if (calcResultReady) {
       // Chain from result
       calcPrevVal = calcFinalValue;
