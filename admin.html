@@ -7,7 +7,8 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 24px 12px; }
-  .container { width: min(560px, 100%); background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); overflow: hidden; }
+  .container { width: min(560px, 100%); background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); }
+  .header { overflow: hidden; }
   .header { background: linear-gradient(135deg, #1a1a2e, #16213e); color: #fff; padding: 20px 24px; text-align: center; }
   .header h1 { font-size: 18px; font-weight: 700; }
   .header p { font-size: 11px; opacity: 0.6; margin-top: 3px; }
@@ -748,7 +749,7 @@ function switchTab(tab) {
   document.querySelector('.tab-bar').style.display = tab === 'calc' ? 'none' : '';
   if (tab === 'reports') { loadSummary(); loadReport(0); }
   if (tab === 'qrtest') { populateQrTestDropdown(); }
-  if (tab === 'calc') { updateCalcBadge(); }
+  if (tab === 'calc') { updateCalcBadge(); calcUpdateDisplay(); }
   if (tab === 'users') { refreshUsers(); }
 }
 
@@ -1502,6 +1503,12 @@ function calcApplyOp(a, b, op) {
 }
 
 function calcBtn(val) {
+  try { _calcBtn(val); } catch(e) {
+    const el = document.getElementById('calcMainDisplay');
+    if (el) el.textContent = 'ERR: ' + e.message;
+  }
+}
+function _calcBtn(val) {
   // If QR is showing, ignore all input except C
   if (document.getElementById('calcQrModal').style.display === 'flex') {
     if (val === 'C') calcReset();
