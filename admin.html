@@ -481,10 +481,13 @@
         <div id="calcMsg" class="msg"></div>
 
         <div class="calc-wrap">
-          <!-- Active profile badge + menu button -->
+          <!-- Active profile badge + mode toggle + menu button -->
           <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px 6px">
             <div id="calcProfileBadge" style="font-size:11px;color:#555;font-family:monospace">—</div>
-            <button onclick="calcOpenMenu()" style="background:none;border:none;color:#555;font-size:20px;cursor:pointer;padding:4px 6px;line-height:1">☰</button>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button id="calcDecimalToggle" onclick="calcToggleDecimal()" style="border:none;color:#fff;font-size:11px;font-weight:700;cursor:pointer;padding:4px 10px;border-radius:6px;line-height:1;touch-action:manipulation">.00</button>
+              <button onclick="calcOpenMenu()" style="background:none;border:none;color:#555;font-size:20px;cursor:pointer;padding:4px 6px;line-height:1">☰</button>
+            </div>
           </div>
 
           <div class="calc-display">
@@ -764,6 +767,7 @@ function switchTab(tab) {
   if (tab === 'qrtest') { populateQrTestDropdown(); }
   if (tab === 'calc') {
     updateCalcBadge();
+    updateCalcDecimalBtn();
     try { calcUpdateDisplay(); } catch(e) {
       var d = document.getElementById('calcMainDisplay');
       if (d) d.textContent = 'ERR:' + e.message;
@@ -1458,6 +1462,7 @@ document.getElementById('loginUsername').focus();
 // ── Calculator Tab ─────────────────────────────────────────────────────
 // POS decimal-ready input: digits shift right, display = calcRawStr / 100
 var calcTxRunningNo = 1;     // current running transaction number (fetched from server)
+var calcDecimalMode = true;  // true = shift-right ÷100 (1→0.01), false = whole number (1→1.00)
 let calcRawStr = '';         // digit string (e.g. "150" → RM 1.50)
 let calcPrevVal = null;      // previous operand (float)
 let calcPendingOp = null;    // '+', '-', '×', '÷'
@@ -1489,7 +1494,31 @@ function calcLog(msg, type) {
 }
 
 function calcCurrentVal() {
-  return parseInt(calcRawStr || '0') / 100;
+  return calcDecimalMode
+    ? parseInt(calcRawStr || '0') / 100
+    : parseInt(calcRawStr || '0');
+}
+
+function calcToggleDecimal() {
+  calcDecimalMode = !calcDecimalMode;
+  calcRawStr = ''; calcPrevVal = null; calcPendingOp = null;
+  calcResultReady = false; calcFinalValue = 0;
+  updateCalcDecimalBtn();
+  calcUpdateDisplay();
+}
+
+function updateCalcDecimalBtn() {
+  const btn = document.getElementById('calcDecimalToggle');
+  if (!btn) return;
+  if (calcDecimalMode) {
+    btn.textContent = '.00';
+    btn.style.background = '#30d158';
+    btn.title = 'Decimal mode — tap to switch to whole number';
+  } else {
+    btn.textContent = 'INT';
+    btn.style.background = '#636366';
+    btn.title = 'Integer mode — tap to switch to decimal';
+  }
 }
 
 function calcUpdateDisplay() {
