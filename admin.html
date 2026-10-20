@@ -613,7 +613,7 @@
 </div>
 
 <!-- ── CALC QR MODAL (full-screen overlay) ── -->
-<div id="calcQrModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:none;flex-direction:column;align-items:center;justify-content:center;padding:20px">
+<div id="calcQrModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;flex-direction:column;align-items:center;justify-content:center;padding:20px">
   <!-- QR Screen -->
   <div id="calcQrArea" style="display:none;width:100%;max-width:420px;background:#1c1c1e;border-radius:20px;padding:24px 20px;text-align:center">
     <div style="font-size:13px;color:#888;margin-bottom:4px">Payment Request</div>
@@ -1503,7 +1503,7 @@ function calcApplyOp(a, b, op) {
 
 function calcBtn(val) {
   // If QR is showing, ignore all input except C
-  if (document.getElementById('calcQrModal').style.display !== 'none') {
+  if (document.getElementById('calcQrModal').style.display === 'flex') {
     if (val === 'C') calcReset();
     return;
   }
