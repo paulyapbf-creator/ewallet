@@ -763,6 +763,7 @@ function switchTab(tab) {
   });
   // Hide tab bar on Calc tab; show it on all others
   document.querySelector('.tab-bar').style.display = tab === 'calc' ? 'none' : '';
+  if (tab === 'calc') window.scrollTo(0, 0);
   if (tab === 'reports') { loadSummary(); loadReport(0); }
   if (tab === 'qrtest') { populateQrTestDropdown(); }
   if (tab === 'calc') {
