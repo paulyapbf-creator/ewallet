@@ -493,32 +493,32 @@
           </div>
           <div class="calc-hint" id="calcHint">Press <b>=</b> to calculate &nbsp;·&nbsp; Press <b>=</b> again to pay</div>
 
-          <div class="calc-grid">
+          <div class="calc-grid" id="calcGrid">
             <!-- Row 1 -->
-            <button class="calc-btn fn" onclick="calcBtn('C')">C</button>
-            <button class="calc-btn op" onclick="calcBtn('⌫')">⌫</button>
-            <button class="calc-btn op" onclick="calcBtn('%')">%</button>
-            <button class="calc-btn op" onclick="calcBtn('÷')">÷</button>
+            <button class="calc-btn fn"  data-val="C">C</button>
+            <button class="calc-btn op"  data-val="⌫">⌫</button>
+            <button class="calc-btn op"  data-val="%">%</button>
+            <button class="calc-btn op"  data-val="÷">÷</button>
             <!-- Row 2 -->
-            <button class="calc-btn num" onclick="calcBtn('7')">7</button>
-            <button class="calc-btn num" onclick="calcBtn('8')">8</button>
-            <button class="calc-btn num" onclick="calcBtn('9')">9</button>
-            <button class="calc-btn op" onclick="calcBtn('×')">×</button>
+            <button class="calc-btn num" data-val="7">7</button>
+            <button class="calc-btn num" data-val="8">8</button>
+            <button class="calc-btn num" data-val="9">9</button>
+            <button class="calc-btn op"  data-val="×">×</button>
             <!-- Row 3 -->
-            <button class="calc-btn num" onclick="calcBtn('4')">4</button>
-            <button class="calc-btn num" onclick="calcBtn('5')">5</button>
-            <button class="calc-btn num" onclick="calcBtn('6')">6</button>
-            <button class="calc-btn op" onclick="calcBtn('-')">−</button>
+            <button class="calc-btn num" data-val="4">4</button>
+            <button class="calc-btn num" data-val="5">5</button>
+            <button class="calc-btn num" data-val="6">6</button>
+            <button class="calc-btn op"  data-val="-">−</button>
             <!-- Row 4 -->
-            <button class="calc-btn num" onclick="calcBtn('1')">1</button>
-            <button class="calc-btn num" onclick="calcBtn('2')">2</button>
-            <button class="calc-btn num" onclick="calcBtn('3')">3</button>
-            <button class="calc-btn op" onclick="calcBtn('+')">+</button>
+            <button class="calc-btn num" data-val="1">1</button>
+            <button class="calc-btn num" data-val="2">2</button>
+            <button class="calc-btn num" data-val="3">3</button>
+            <button class="calc-btn op"  data-val="+">+</button>
             <!-- Row 5 -->
-            <button class="calc-btn op" onclick="calcBtn('+/-')">+/−</button>
-            <button class="calc-btn num" onclick="calcBtn('0')">0</button>
-            <button class="calc-btn num" onclick="calcBtn('00')">00</button>
-            <button class="calc-btn eq" id="calcEqBtn" onclick="calcBtn('=')">=</button>
+            <button class="calc-btn op"  data-val="+/-">+/−</button>
+            <button class="calc-btn num" data-val="0">0</button>
+            <button class="calc-btn num" data-val="00">00</button>
+            <button class="calc-btn eq"  data-val="=" id="calcEqBtn">=</button>
           </div>
 
         </div>
@@ -1443,6 +1443,18 @@ let calcResultReady = false; // true after = pressed (ready to pay on second =)
 let calcFinalValue = 0;      // evaluated result
 let calcQrResolved = false;
 let calcQrTimerHandle = null;
+let calcQrOpen = false;      // true while QR modal is showing
+
+// Wire up calc grid via event delegation (more reliable than inline onclick)
+document.addEventListener('DOMContentLoaded', function() {
+  const grid = document.getElementById('calcGrid');
+  if (grid) {
+    grid.addEventListener('click', function(e) {
+      const btn = e.target.closest('[data-val]');
+      if (btn) calcBtn(btn.getAttribute('data-val'));
+    });
+  }
+});
 
 function updateCalcBadge() {
   const el = document.getElementById('calcProfileBadge');
@@ -1509,8 +1521,8 @@ function calcBtn(val) {
   }
 }
 function _calcBtn(val) {
-  // If QR is showing, ignore all input except C
-  if (document.getElementById('calcQrModal').style.display === 'flex') {
+  // If QR modal is open, ignore all input except C
+  if (calcQrOpen) {
     if (val === 'C') calcReset();
     return;
   }
@@ -1644,7 +1656,7 @@ async function calcGenerateQR(profileName, amount) {
 
   // Show modal with QR area
   const modal = document.getElementById('calcQrModal');
-  modal.style.display = 'flex';
+  modal.style.display = 'flex'; calcQrOpen = true;
   document.getElementById('calcQrArea').style.display = 'block';
   document.getElementById('calcQrResult').style.display = 'none';
   document.getElementById('calcQrLog').innerHTML = '';
@@ -1684,7 +1696,7 @@ async function calcGenerateQR(profileName, amount) {
     calcLog('Error: ' + e.message, 'err');
     showMsg('calcMsg', e.message, false);
     document.getElementById('calcQrArea').style.display = 'none';
-    document.getElementById('calcQrModal').style.display = 'none';
+    document.getElementById('calcQrModal').style.display = 'none'; calcQrOpen = false;
   }
 }
 
@@ -1759,7 +1771,7 @@ async function calcQrCancel(silent) {
   if (!silent) {
     calcShowResult(false, 'Cancelled by user');
   } else {
-    document.getElementById('calcQrModal').style.display = 'none';
+    document.getElementById('calcQrModal').style.display = 'none'; calcQrOpen = false;
   }
 }
 
@@ -1767,7 +1779,7 @@ function calcReset() {
   calcStopTimer();
   calcRawStr = ''; calcPrevVal = null; calcPendingOp = null;
   calcResultReady = false; calcFinalValue = 0; calcQrResolved = false;
-  document.getElementById('calcQrModal').style.display = 'none';
+  document.getElementById('calcQrModal').style.display = 'none'; calcQrOpen = false;
   document.getElementById('calcQrArea').style.display = 'none';
   document.getElementById('calcQrResult').style.display = 'none';
   document.getElementById('calcQrLog').innerHTML = '';
