@@ -1526,19 +1526,19 @@ function calcUpdateDisplay() {
   const mainEl = document.getElementById('calcMainDisplay');
   const exprEl = document.getElementById('calcExprDisplay');
   if (calcResultReady) {
-    mainEl.textContent = 'RM ' + calcFinalValue.toFixed(2);
+    mainEl.textContent = calcFinalValue.toFixed(2);
     mainEl.className = 'calc-main result';
     exprEl.textContent = '';
     document.getElementById('calcHint').innerHTML = 'Press <b style="color:#e31837">=</b> to generate QR payment';
     document.getElementById('calcEqBtn').classList.add('pay');
   } else {
     const cur = calcCurrentVal();
-    mainEl.textContent = 'RM ' + cur.toFixed(2);
+    mainEl.textContent = cur.toFixed(2);
     mainEl.className = 'calc-main';
     // Show pending expression above
     if (calcPrevVal !== null && calcPendingOp) {
       const opDisp = {'+':'+', '-':'−', '*':'×', '/':'÷'}[calcPendingOp] || calcPendingOp;
-      exprEl.textContent = 'RM ' + calcPrevVal.toFixed(2) + ' ' + opDisp;
+      exprEl.textContent = calcPrevVal.toFixed(2) + ' ' + opDisp;
     } else {
       exprEl.textContent = '';
     }
@@ -1668,7 +1668,7 @@ function _calcBtn(val) {
       result = calcCurrentVal();
     }
     if (!isFinite(result) || isNaN(result) || result <= 0) {
-      document.getElementById('calcMainDisplay').textContent = result <= 0 ? 'RM 0.00' : 'Error';
+      document.getElementById('calcMainDisplay').textContent = result <= 0 ? '0.00' : 'Error';
       calcRawStr = ''; calcPrevVal = null; calcPendingOp = null;
       return;
     }
