@@ -12,6 +12,7 @@ const usersLib = require('./lib/users');
 
 const db = require('./lib/db');
 const { mytNow } = db;
+const schema = require('./lib/schema');
 
 const PORT = process.env.PORT || 4568;
 const RAILWAY_DOMAIN = process.env.RAILWAY_PUBLIC_DOMAIN;
@@ -80,10 +81,10 @@ const requirePin = requireAdmin;
 // ================================================================
 // Auth endpoints
 // ================================================================
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
-  const user = usersLib.authenticate(username, password);
+  const user = await usersLib.authenticate(username, password);
   if (!user) return res.status(401).json({ error: 'Invalid username or password' });
   const token = createSession(user.username, user.role);
   console.log(`[AUTH] Login: ${user.username} (${user.role})`);
@@ -93,21 +94,21 @@ app.post('/api/auth/login', (req, res) => {
 // ================================================================
 // User management (admin only)
 // ================================================================
-app.get('/api/admin/users', requireAdmin, (req, res) => {
-  res.json({ users: usersLib.getAll() });
+app.get('/api/admin/users', requireAdmin, async (req, res) => {
+  res.json({ users: await usersLib.getAll() });
 });
 
-app.post('/api/admin/users', requireAdmin, (req, res) => {
+app.post('/api/admin/users', requireAdmin, async (req, res) => {
   const { username, password, role } = req.body || {};
   if (!username) return res.status(400).json({ error: 'Username required' });
   if (!['admin', 'cashier'].includes(role)) return res.status(400).json({ error: 'Role must be admin or cashier' });
-  usersLib.upsert(username, password, role);
+  await usersLib.upsert(username, password, role);
   console.log(`[USERS] Upsert: ${username} (${role}) by ${req.username}`);
   res.json({ ok: true });
 });
 
-app.delete('/api/admin/users/:username', requireAdmin, (req, res) => {
-  const ok = usersLib.remove(req.params.username);
+app.delete('/api/admin/users/:username', requireAdmin, async (req, res) => {
+  const ok = await usersLib.remove(req.params.username);
   if (!ok) return res.status(400).json({ error: 'Cannot delete the last admin account' });
   console.log(`[USERS] Deleted: ${req.params.username} by ${req.username}`);
   res.json({ ok: true });
@@ -394,34 +395,30 @@ const store = {
 
 app.use(createPaymentRouter(store, {
   onTransactionCreate: (data) => {
-    try { db.insert(data); } catch(e) { console.error('[DB] insert:', e.message); }
+    db.insert(data).catch(e => console.error('[DB] insert:', e.message));
   },
   onTransactionCancel: (referenceNo) => {
-    try { db.updateByRef(referenceNo, { status: 'cancelled', completedAt: new Date().toISOString() }); } catch(e) {}
+    db.updateByRef(referenceNo, { status: 'cancelled', completedAt: mytNow() }).catch(() => {});
   },
   onTransactionPaid: (result) => {
     console.log(`[POLL] onTransactionPaid called: referenceNo="${result.referenceNo}"`);
-    try {
-      db.updateByRef(result.referenceNo, {
-        status: 'paid',
-        externalRefNo: result.externalRefNo || '',
-        method: 'polling',
-        completedAt: mytNow()
-      });
-    } catch(e) { console.error('[DB] poll update:', e.message); }
+    db.updateByRef(result.referenceNo, {
+      status: 'paid',
+      externalRefNo: result.externalRefNo || '',
+      method: 'polling',
+      completedAt: mytNow()
+    }).catch(e => console.error('[DB] poll update:', e.message));
   },
   onPaymentUpdate: (result) => {
     console.log(`[WEBHOOK → POS] ${result.referenceNo} → ${result.status}`);
     try { broadcastToPos({ type: 'payment_update', ...result }); } catch(e) { console.error('[WS] broadcast error:', e.message); }
     if (result.success) {
-      try {
-        db.updateByRef(result.referenceNo, {
-          status: 'paid',
-          externalRefNo: result.externalRefNo || '',
-          method: result.method || 'webhook',
-          completedAt: new Date().toISOString()
-        });
-      } catch(e) { console.error('[DB] update:', e.message); }
+      db.updateByRef(result.referenceNo, {
+        status: 'paid',
+        externalRefNo: result.externalRefNo || '',
+        method: result.method || 'webhook',
+        completedAt: mytNow()
+      }).catch(e => console.error('[DB] update:', e.message));
     }
   }
 }));
@@ -478,15 +475,15 @@ app.get('/api/config', (req, res) => {
 });
 
 // Mark transaction as paid (called by POS frontend after payment confirmed)
-app.post('/api/payment/paid', (req, res) => {
+app.post('/api/payment/paid', async (req, res) => {
   const { referenceNo, externalRefNo, method } = req.body;
   if (!referenceNo) return res.status(400).json({ error: 'referenceNo required' });
   try {
-    db.updateByRef(referenceNo, {
+    await db.updateByRef(referenceNo, {
       status: 'paid',
       externalRefNo: externalRefNo || '',
       method: method || 'unknown',
-      completedAt: new Date().toISOString()
+      completedAt: mytNow()
     });
     res.json({ success: true });
   } catch(e) {
@@ -500,19 +497,16 @@ app.post('/api/txno/increment', (req, res) => {
   const next = (parseInt(s.txRunningNo) || 1) + 1;
   settings.save({ txRunningNo: next });
 
-  // Update transaction DB status if referenceNo provided
   const { referenceNo, externalRefNo, method, paymentMethod } = req.body || {};
   console.log(`[TXNO] increment called, referenceNo="${referenceNo || '(none)'}"`);
   if (referenceNo) {
-    try {
-      db.updateByRef(referenceNo, {
-        status: 'paid',
-        externalRefNo: externalRefNo || '',
-        method: method || 'unknown',
-        paymentMethod: paymentMethod || '',
-        completedAt: mytNow()
-      });
-    } catch(e) { console.error('[DB] paid update failed:', e.message); }
+    db.updateByRef(referenceNo, {
+      status: 'paid',
+      externalRefNo: externalRefNo || '',
+      method: method || 'unknown',
+      paymentMethod: paymentMethod || '',
+      completedAt: mytNow()
+    }).catch(e => console.error('[DB] paid update failed:', e.message));
   }
 
   res.json({ txRunningNo: next });
@@ -545,30 +539,29 @@ app.put('/api/admin/version', requirePin, (req, res) => {
 // ================================================================
 // Transactions Report API
 // ================================================================
-app.get('/api/admin/transactions', requireAuth, (req, res) => {
+app.get('/api/admin/transactions', requireAuth, async (req, res) => {
   try {
     const { limit, offset, gateway, status, from, to, terminal } = req.query;
-    const result = db.query({ limit: parseInt(limit)||50, offset: parseInt(offset)||0, gateway, status, from, to, terminal });
-    res.json(result);
+    res.json(await db.query({ limit: parseInt(limit)||50, offset: parseInt(offset)||0, gateway, status, from, to, terminal }));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/admin/transactions/summary', requireAuth, (req, res) => {
+app.get('/api/admin/transactions/summary', requireAuth, async (req, res) => {
   try {
     const { gateway, from, to, terminal } = req.query;
-    res.json(db.summary({ gateway: gateway || '', from: from || '', to: to || '', terminal: terminal || '' }));
+    res.json(await db.summary({ gateway: gateway || '', from: from || '', to: to || '', terminal: terminal || '' }));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/admin/transactions/by-user', requireAuth, (req, res) => {
+app.get('/api/admin/transactions/by-user', requireAuth, async (req, res) => {
   try {
     const { gateway, from, to, terminal, cashier } = req.query;
-    res.json(db.byUser({ gateway: gateway || '', from: from || '', to: to || '', terminal: terminal || '', cashier: cashier || '' }));
+    res.json(await db.byUser({ gateway: gateway || '', from: from || '', to: to || '', terminal: terminal || '', cashier: cashier || '' }));
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/admin/transactions/cashiers', requireAuth, (req, res) => {
-  try { res.json(db.getCashiers()); }
+app.get('/api/admin/transactions/cashiers', requireAuth, async (req, res) => {
+  try { res.json(await db.getCashiers()); }
   catch(e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -576,6 +569,11 @@ app.get('/api/admin/transactions/cashiers', requireAuth, (req, res) => {
 app.get('/health', (req, res) => {
   const s = settings.load();
   res.json({ status: 'ok', mode: s.duitnowApiUrl ? 'live' : 'sandbox', enabled: s.duitnowEnabled });
+});
+
+schema.init().catch(err => {
+  console.error('[DB] Schema init failed:', err.message);
+  process.exit(1);
 });
 
 server.listen(PORT, '0.0.0.0', () => {
