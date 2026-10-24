@@ -579,6 +579,9 @@
         <div class="filter-row">
           <input type="date" id="urFrom">
           <input type="date" id="urTo">
+          <select id="urUser">
+            <option value="">All Users</option>
+          </select>
           <select id="urGateway">
             <option value="">All Gateways</option>
             <option value="duitnow">J&amp;C</option>
@@ -795,7 +798,7 @@ function switchTab(tab) {
   document.querySelector('.tab-bar').style.display = tab === 'calc' ? 'none' : '';
   if (tab === 'calc') window.scrollTo(0, 0);
   if (tab === 'reports') { loadSummary(); loadReport(0); }
-  if (tab === 'userreport') { loadUserReport(); }
+  if (tab === 'userreport') { populateUrUsers().then(() => loadUserReport()); }
   if (tab === 'qrtest') { populateQrTestDropdown(); }
   if (tab === 'calc') {
     updateCalcBadge();
@@ -1262,6 +1265,16 @@ function reportPage(dir) {
   loadReport();
 }
 
+async function populateUrUsers() {
+  try {
+    const cashiers = await fetch(API + '/api/admin/transactions/cashiers', { headers: { 'Authorization': 'Bearer ' + authToken } }).then(r => r.json());
+    const sel = document.getElementById('urUser');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">All Users</option>' + cashiers.map(c => `<option value="${c}">${c}</option>`).join('');
+    if (current) sel.value = current;
+  } catch(e) {}
+}
+
 async function loadUserReport() {
   const body = document.getElementById('urTableBody');
   body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;padding:16px">Loading...</td></tr>';
@@ -1269,9 +1282,11 @@ async function loadUserReport() {
   const from = document.getElementById('urFrom').value;
   const to = document.getElementById('urTo').value;
   const gw = document.getElementById('urGateway').value;
+  const cashier = document.getElementById('urUser').value;
   if (from) params.append('from', from);
   if (to) params.append('to', to);
   if (gw) params.append('gateway', gw);
+  if (cashier) params.append('cashier', cashier);
   try {
     const r = await fetch(API + '/api/admin/transactions/by-user?' + params, { headers: { 'Authorization': 'Bearer ' + authToken } }).then(r => r.json());
     if (!r.rows || !r.rows.length) {

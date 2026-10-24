@@ -562,9 +562,14 @@ app.get('/api/admin/transactions/summary', requireAuth, (req, res) => {
 
 app.get('/api/admin/transactions/by-user', requireAuth, (req, res) => {
   try {
-    const { gateway, from, to, terminal } = req.query;
-    res.json(db.byUser({ gateway: gateway || '', from: from || '', to: to || '', terminal: terminal || '' }));
+    const { gateway, from, to, terminal, cashier } = req.query;
+    res.json(db.byUser({ gateway: gateway || '', from: from || '', to: to || '', terminal: terminal || '', cashier: cashier || '' }));
   } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/transactions/cashiers', requireAuth, (req, res) => {
+  try { res.json(db.getCashiers()); }
+  catch(e) { res.status(500).json({ error: e.message }); }
 });
 
 // Health check
