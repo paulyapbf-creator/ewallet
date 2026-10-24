@@ -589,6 +589,7 @@
             <option value="ecpi">ECPI</option>
           </select>
           <button onclick="loadUserReport()">Filter</button>
+          <button onclick="printUserReport()" style="background:#16a34a">&#128438; Print</button>
         </div>
         <div style="overflow-x:auto">
           <table class="tx-table">
@@ -1324,6 +1325,53 @@ async function loadUserReport() {
   } catch(e) {
     body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#e31837">Error loading report</td></tr>';
   }
+}
+
+function printUserReport() {
+  const tbody = document.getElementById('urTableBody');
+  if (!tbody || !tbody.querySelector('tr td')) return;
+  const user = document.getElementById('urUser').value || 'All Users';
+  const from = document.getElementById('urFrom').value || '—';
+  const to   = document.getElementById('urTo').value   || '—';
+  const gw   = document.getElementById('urGateway').value || 'All Gateways';
+  const totalTxns   = document.getElementById('urTxns').textContent;
+  const totalAmount = document.getElementById('urAmount').textContent;
+
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>User Report</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; color: #111; }
+  h2 { margin: 0 0 4px; font-size: 16px; }
+  .meta { font-size: 11px; color: #555; margin-bottom: 14px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #1a1a2e; color: #fff; padding: 7px 6px; text-align: left; font-size: 11px; }
+  td { padding: 6px; border-bottom: 1px solid #e0e0e0; font-size: 11px; }
+  tr.total-row td { background: #f0fdf4; font-weight: 700; border-top: 2px solid #16a34a; color: #16a34a; }
+  .paid { color: #16a34a; font-weight: 700; }
+  .cancelled { color: #e31837; }
+  .summary { display: flex; gap: 30px; margin-bottom: 14px; }
+  .summary div { background: #f9f9f9; border-radius: 8px; padding: 8px 16px; text-align: center; }
+  .summary .val { font-size: 18px; font-weight: 800; color: #16a34a; }
+  .summary .lbl { font-size: 10px; color: #888; }
+  @media print { button { display: none; } }
+</style></head><body>
+<h2>BKT Wallet &mdash; User Report</h2>
+<div class="meta">
+  User: <b>${user}</b> &nbsp;|&nbsp; Date: <b>${from}</b> to <b>${to}</b> &nbsp;|&nbsp; Gateway: <b>${gw}</b><br>
+  Printed: ${new Date().toLocaleString()}
+</div>
+<div class="summary">
+  <div><div class="val">${totalTxns}</div><div class="lbl">Total Txns</div></div>
+  <div><div class="val">${totalAmount}</div><div class="lbl">Total Amount</div></div>
+</div>
+<table>
+  <thead><tr><th>User</th><th>Date</th><th>Total</th><th>Paid</th><th>Cancelled</th><th>Amount (RM)</th></tr></thead>
+  <tbody>${tbody.innerHTML}</tbody>
+</table>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`);
+  w.document.close();
 }
 
 // ── QR Test Tab ───────────────────────────────────────────────────────
