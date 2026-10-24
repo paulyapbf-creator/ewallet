@@ -174,6 +174,7 @@
       <div class="tab-bar">
         <button class="tab-btn active" onclick="switchTab('calc')">Calc</button>
         <button class="tab-btn" onclick="switchTab('reports')">Reports</button>
+        <button class="tab-btn" onclick="switchTab('userreport')">User Report</button>
         <button class="tab-btn admin-tab" onclick="switchTab('test')">Test</button>
         <button class="tab-btn admin-tab" onclick="switchTab('profiles')">Profiles</button>
         <button class="tab-btn admin-tab" onclick="switchTab('settings')">Settings</button>
@@ -550,44 +551,53 @@
             <option value="pending">Pending</option>
             <option value="cancelled">Cancelled</option>
           </select>
-          <button onclick="loadSummary();loadReport(0);if(document.getElementById('viewUser').style.display!='none')loadUserReport()">Filter</button>
+          <button onclick="loadSummary();loadReport(0)">Filter</button>
         </div>
-        <div class="mode-toggle" style="margin-bottom:10px">
-          <button id="viewTxBtn" class="mode-btn active" onclick="switchReportView('tx')">Transactions</button>
-          <button id="viewUserBtn" class="mode-btn" onclick="switchReportView('user')">By User</button>
+        <div style="overflow-x:auto">
+          <table class="tx-table">
+            <thead>
+              <tr><th>Txn</th><th>Date/Time</th><th>Reference</th><th>Amount</th><th>GW</th><th>Method</th><th>Cashier</th><th>Status</th></tr>
+            </thead>
+            <tbody id="txTableBody">
+              <tr><td colspan="8" style="text-align:center;color:#888;padding:16px">Loading...</td></tr>
+            </tbody>
+          </table>
         </div>
-        <!-- Transactions view -->
-        <div id="viewTx">
-          <div style="overflow-x:auto">
-            <table class="tx-table">
-              <thead>
-                <tr><th>Txn</th><th>Date/Time</th><th>Reference</th><th>Amount</th><th>GW</th><th>Method</th><th>Cashier</th><th>Status</th></tr>
-              </thead>
-              <tbody id="txTableBody">
-                <tr><td colspan="8" style="text-align:center;color:#888;padding:16px">Loading...</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="pagination">
-            <button id="btnPrev" onclick="reportPage(-1)" disabled>&#8592; Prev</button>
-            <span id="pageInfo"></span>
-            <button id="btnNext" onclick="reportPage(1)">Next &#8594;</button>
-          </div>
-        </div>
-        <!-- By User view -->
-        <div id="viewUser" style="display:none">
-          <div style="overflow-x:auto">
-            <table class="tx-table">
-              <thead>
-                <tr><th>User</th><th>Date</th><th style="text-align:center">Txns</th><th>Total (RM)</th></tr>
-              </thead>
-              <tbody id="userTableBody">
-                <tr><td colspan="4" style="text-align:center;color:#888;padding:16px">Loading...</td></tr>
-              </tbody>
-            </table>
-          </div>
+        <div class="pagination">
+          <button id="btnPrev" onclick="reportPage(-1)" disabled>&#8592; Prev</button>
+          <span id="pageInfo"></span>
+          <button id="btnNext" onclick="reportPage(1)">Next &#8594;</button>
         </div>
       </div><!-- end tabReports -->
+
+      <!-- ── USER REPORT TAB ── -->
+      <div id="tabUserreport" class="tab-content" style="display:none">
+        <div class="summary-cards">
+          <div class="summary-card green"><div class="val" id="urTxns">—</div><div class="lbl">Total Txns</div></div>
+          <div class="summary-card green"><div class="val" id="urAmount">—</div><div class="lbl">Total (RM)</div></div>
+        </div>
+        <div class="filter-row">
+          <input type="date" id="urFrom">
+          <input type="date" id="urTo">
+          <select id="urGateway">
+            <option value="">All Gateways</option>
+            <option value="duitnow">J&amp;C</option>
+            <option value="ampersandpay">AmpersandPay</option>
+            <option value="ecpi">ECPI</option>
+          </select>
+          <button onclick="loadUserReport()">Filter</button>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="tx-table">
+            <thead>
+              <tr><th>User</th><th>Date</th><th style="text-align:center">Txns</th><th>Total (RM)</th></tr>
+            </thead>
+            <tbody id="userTableBody">
+              <tr><td colspan="4" style="text-align:center;color:#888;padding:16px">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div><!-- end tabUserreport -->
 
       <!-- ── USERS TAB ── -->
       <div id="tabUsers" class="tab-content" style="display:none">
@@ -785,6 +795,7 @@ function switchTab(tab) {
   document.querySelector('.tab-bar').style.display = tab === 'calc' ? 'none' : '';
   if (tab === 'calc') window.scrollTo(0, 0);
   if (tab === 'reports') { loadSummary(); loadReport(0); }
+  if (tab === 'userreport') { loadUserReport(); }
   if (tab === 'qrtest') { populateQrTestDropdown(); }
   if (tab === 'calc') {
     updateCalcBadge();
@@ -1251,21 +1262,13 @@ function reportPage(dir) {
   loadReport();
 }
 
-function switchReportView(view) {
-  document.getElementById('viewTx').style.display = view === 'tx' ? '' : 'none';
-  document.getElementById('viewUser').style.display = view === 'user' ? '' : 'none';
-  document.getElementById('viewTxBtn').className = 'mode-btn' + (view === 'tx' ? ' active' : '');
-  document.getElementById('viewUserBtn').className = 'mode-btn' + (view === 'user' ? ' active' : '');
-  if (view === 'user') loadUserReport();
-}
-
 async function loadUserReport() {
   const body = document.getElementById('userTableBody');
   body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;padding:16px">Loading...</td></tr>';
   const params = new URLSearchParams();
-  const from = document.getElementById('fFrom').value;
-  const to = document.getElementById('fTo').value;
-  const gw = document.getElementById('fGateway').value;
+  const from = document.getElementById('urFrom').value;
+  const to = document.getElementById('urTo').value;
+  const gw = document.getElementById('urGateway').value;
   if (from) params.append('from', from);
   if (to) params.append('to', to);
   if (gw) params.append('gateway', gw);
@@ -1273,6 +1276,8 @@ async function loadUserReport() {
     const r = await fetch(API + '/api/admin/transactions/by-user?' + params, { headers: { 'Authorization': 'Bearer ' + authToken } }).then(r => r.json());
     if (!r.rows || !r.rows.length) {
       body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;padding:16px">No paid transactions</td></tr>';
+      document.getElementById('urTxns').textContent = '0';
+      document.getElementById('urAmount').textContent = 'RM 0.00';
       return;
     }
     let grandCount = 0, grandTotal = 0;
@@ -1286,12 +1291,14 @@ async function loadUserReport() {
         <td style="font-weight:700;color:#16a34a">RM ${row.totalAmount.toFixed(2)}</td>
       </tr>`;
     }).join('');
-    const total = `<tr style="background:#f0fdf4;font-weight:700;border-top:2px solid #16a34a">
+    const totalRow = `<tr style="background:#f0fdf4;font-weight:700;border-top:2px solid #16a34a">
       <td colspan="2" style="color:#16a34a">TOTAL</td>
       <td style="text-align:center;color:#16a34a">${grandCount}</td>
       <td style="color:#16a34a">RM ${grandTotal.toFixed(2)}</td>
     </tr>`;
-    body.innerHTML = rows + total;
+    body.innerHTML = rows + totalRow;
+    document.getElementById('urTxns').textContent = grandCount;
+    document.getElementById('urAmount').textContent = 'RM ' + grandTotal.toFixed(2);
   } catch(e) {
     body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#e31837">Error loading report</td></tr>';
   }
