@@ -560,6 +560,13 @@ app.get('/api/admin/transactions/summary', requireAuth, (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+app.get('/api/admin/transactions/by-user', requireAuth, (req, res) => {
+  try {
+    const { gateway, from, to, terminal } = req.query;
+    res.json(db.byUser({ gateway: gateway || '', from: from || '', to: to || '', terminal: terminal || '' }));
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // Health check
 app.get('/health', (req, res) => {
   const s = settings.load();
