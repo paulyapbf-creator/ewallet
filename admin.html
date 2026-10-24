@@ -590,10 +590,10 @@
         <div style="overflow-x:auto">
           <table class="tx-table">
             <thead>
-              <tr><th>User</th><th>Date</th><th style="text-align:center">Txns</th><th>Total (RM)</th></tr>
+              <tr><th>User</th><th>Date</th><th style="text-align:center">Total</th><th style="text-align:center">Paid</th><th style="text-align:center">Cancelled</th><th>Amount (RM)</th></tr>
             </thead>
-            <tbody id="userTableBody">
-              <tr><td colspan="4" style="text-align:center;color:#888;padding:16px">Loading...</td></tr>
+            <tbody id="urTableBody">
+              <tr><td colspan="6" style="text-align:center;color:#888;padding:16px">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1263,8 +1263,8 @@ function reportPage(dir) {
 }
 
 async function loadUserReport() {
-  const body = document.getElementById('userTableBody');
-  body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;padding:16px">Loading...</td></tr>';
+  const body = document.getElementById('urTableBody');
+  body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;padding:16px">Loading...</td></tr>';
   const params = new URLSearchParams();
   const from = document.getElementById('urFrom').value;
   const to = document.getElementById('urTo').value;
@@ -1275,32 +1275,39 @@ async function loadUserReport() {
   try {
     const r = await fetch(API + '/api/admin/transactions/by-user?' + params, { headers: { 'Authorization': 'Bearer ' + authToken } }).then(r => r.json());
     if (!r.rows || !r.rows.length) {
-      body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#888;padding:16px">No paid transactions</td></tr>';
+      body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;padding:16px">No transactions</td></tr>';
       document.getElementById('urTxns').textContent = '0';
       document.getElementById('urAmount').textContent = 'RM 0.00';
       return;
     }
-    let grandCount = 0, grandTotal = 0;
+    let grandTotal = 0, grandPaid = 0, grandCancelled = 0, grandAmount = 0;
     const rows = r.rows.map(row => {
-      grandCount += row.count;
-      grandTotal += row.totalAmount;
+      grandTotal += row.total;
+      grandPaid += row.paid;
+      grandCancelled += row.cancelled;
+      grandAmount += row.totalAmount;
       return `<tr>
         <td style="font-weight:600">${row.cashier}</td>
         <td>${row.date}</td>
-        <td style="text-align:center">${row.count}</td>
+        <td style="text-align:center">${row.total}</td>
+        <td style="text-align:center;color:#16a34a;font-weight:700">${row.paid}</td>
+        <td style="text-align:center;color:#e31837">${row.cancelled}</td>
         <td style="font-weight:700;color:#16a34a">RM ${row.totalAmount.toFixed(2)}</td>
       </tr>`;
     }).join('');
+    grandAmount = Math.round(grandAmount * 100) / 100;
     const totalRow = `<tr style="background:#f0fdf4;font-weight:700;border-top:2px solid #16a34a">
       <td colspan="2" style="color:#16a34a">TOTAL</td>
-      <td style="text-align:center;color:#16a34a">${grandCount}</td>
-      <td style="color:#16a34a">RM ${grandTotal.toFixed(2)}</td>
+      <td style="text-align:center;color:#16a34a">${grandTotal}</td>
+      <td style="text-align:center;color:#16a34a">${grandPaid}</td>
+      <td style="text-align:center;color:#e31837">${grandCancelled}</td>
+      <td style="color:#16a34a">RM ${grandAmount.toFixed(2)}</td>
     </tr>`;
     body.innerHTML = rows + totalRow;
-    document.getElementById('urTxns').textContent = grandCount;
-    document.getElementById('urAmount').textContent = 'RM ' + grandTotal.toFixed(2);
+    document.getElementById('urTxns').textContent = grandTotal;
+    document.getElementById('urAmount').textContent = 'RM ' + grandAmount.toFixed(2);
   } catch(e) {
-    body.innerHTML = '<tr><td colspan="4" style="text-align:center;color:#e31837">Error loading report</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#e31837">Error loading report</td></tr>';
   }
 }
 
