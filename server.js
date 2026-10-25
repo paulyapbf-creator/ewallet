@@ -14,6 +14,14 @@ const db = require('./lib/db');
 const { mytNow } = db;
 const schema = require('./lib/schema');
 
+function getTxDate() {
+  const now = new Date(Date.now() + 8 * 3600000);
+  const dd = String(now.getUTCDate()).padStart(2, '0');
+  const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const yy = String(now.getUTCFullYear()).slice(-2);
+  return dd + mm + yy;
+}
+
 const PORT = process.env.PORT || 4568;
 const RAILWAY_DOMAIN = process.env.RAILWAY_PUBLIC_DOMAIN;
 const BASE_URL = RAILWAY_DOMAIN ? `https://${RAILWAY_DOMAIN}` : `http://localhost:${PORT}`;
@@ -465,10 +473,14 @@ app.get('/api/config', async (req, res) => {
     };
   }
 
+  const today = getTxDate();
+  const seq = s.txRunningDate === today ? (parseInt(s.txRunningNo) || 1) : 1;
+  const txRunningNo = today + String(seq).padStart(3, '0');
+
   res.json({
     activeGateway: gw,
     activeProfile: s.activeProfile || '',
-    txRunningNo: s.txRunningNo || 1,
+    txRunningNo,
     terminalCode: s.terminalCode || 'POS-01',
     gwInfo
   });
@@ -494,11 +506,13 @@ app.post('/api/payment/paid', async (req, res) => {
 // Increment transaction running no + mark transaction as paid (called by POS after successful payment)
 app.post('/api/txno/increment', async (req, res) => {
   const s = await settings.load();
-  const next = (parseInt(s.txRunningNo) || 1) + 1;
-  await settings.save({ txRunningNo: next });
+  const today = getTxDate();
+  const nextSeq = s.txRunningDate === today ? (parseInt(s.txRunningNo) || 1) + 1 : 2;
+  await settings.save({ txRunningNo: nextSeq, txRunningDate: today });
+  const txRunningNo = today + String(nextSeq).padStart(3, '0');
 
   const { referenceNo, externalRefNo, method, paymentMethod } = req.body || {};
-  console.log(`[TXNO] increment called, referenceNo="${referenceNo || '(none)'}"`);
+  console.log(`[TXNO] increment called, referenceNo="${referenceNo || '(none)'}", txNo="${txRunningNo}"`);
   if (referenceNo) {
     db.updateByRef(referenceNo, {
       status: 'paid',
@@ -509,7 +523,7 @@ app.post('/api/txno/increment', async (req, res) => {
     }).catch(e => console.error('[DB] paid update failed:', e.message));
   }
 
-  res.json({ txRunningNo: next });
+  res.json({ txRunningNo });
 });
 
 // APK version info
