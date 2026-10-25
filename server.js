@@ -50,11 +50,11 @@ function createSession(username, role) {
   return token;
 }
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   // Legacy PIN header (backward compat)
   const pin = req.headers['x-admin-pin'];
   if (pin) {
-    const s = settings.load();
+    const s = await settings.load();
     if (!s.adminPin || pin === s.adminPin) { req.userRole = 'admin'; req.username = 'admin'; return next(); }
   }
   // Bearer token
@@ -68,8 +68,8 @@ function requireAuth(req, res, next) {
   res.status(401).json({ error: 'Unauthorized' });
 }
 
-function requireAdmin(req, res, next) {
-  requireAuth(req, res, () => {
+async function requireAdmin(req, res, next) {
+  await requireAuth(req, res, () => {
     if (req.userRole !== 'admin') return res.status(403).json({ error: 'Admin access required' });
     next();
   });
@@ -117,30 +117,29 @@ app.delete('/api/admin/users/:username', requireAdmin, async (req, res) => {
 // ================================================================
 // Admin Settings API
 // ================================================================
-app.get('/api/admin/settings', requirePin, (req, res) => {
-  const s = settings.load();
-  // Mask secret key for display (show last 4 chars only)
+app.get('/api/admin/settings', requirePin, async (req, res) => {
+  const s = await settings.load();
   res.json(s);
 });
 
-app.put('/api/admin/settings', requirePin, (req, res) => {
-  const saved = settings.save(req.body);
+app.put('/api/admin/settings', requirePin, async (req, res) => {
+  const saved = await settings.save(req.body);
   console.log('[ADMIN] Settings updated');
   res.json(saved);
 });
 
 // --- Profiles API ---
-app.get('/api/admin/profiles', requireAuth, (req, res) => {
-  res.json({ profiles: settings.listProfiles() });
+app.get('/api/admin/profiles', requireAuth, async (req, res) => {
+  res.json({ profiles: await settings.listProfiles() });
 });
 
-app.get('/api/admin/profiles/all', requireAuth, (req, res) => {
-  res.json({ profiles: settings.loadProfiles() });
+app.get('/api/admin/profiles/all', requireAuth, async (req, res) => {
+  res.json({ profiles: await settings.loadProfiles() });
 });
 
 // Export all profiles as downloadable JSON — MUST be before /:name route
-app.get('/api/admin/profiles/export', requirePin, (req, res) => {
-  const profiles = settings.loadProfiles();
+app.get('/api/admin/profiles/export', requirePin, async (req, res) => {
+  const profiles = await settings.loadProfiles();
   const json = JSON.stringify(profiles, null, 2);
   res.setHeader('Content-Type', 'application/json');
   res.setHeader('Content-Disposition', 'attachment; filename="profiles-backup.json"');
@@ -148,38 +147,39 @@ app.get('/api/admin/profiles/export', requirePin, (req, res) => {
 });
 
 // Import profiles from JSON — MUST be before /:name route
-app.post('/api/admin/profiles/import', requirePin, (req, res) => {
+app.post('/api/admin/profiles/import', requirePin, async (req, res) => {
   try {
     const incoming = req.body;
     if (typeof incoming !== 'object' || Array.isArray(incoming)) {
       return res.status(400).json({ error: 'Expected a JSON object of profiles' });
     }
     const replace = req.query.replace === '1';
-    const existing = replace ? {} : settings.loadProfiles();
+    const existing = replace ? {} : await settings.loadProfiles();
     const merged = { ...existing, ...incoming };
-    const profilesPath = path.join(process.env.DATA_DIR || __dirname, 'profiles.json');
-    fs.writeFileSync(profilesPath, JSON.stringify(merged, null, 2), 'utf8');
+    for (const [name, data] of Object.entries(incoming)) {
+      await settings.saveProfile(name, data);
+    }
     console.log(`[ADMIN] Profiles imported: ${Object.keys(incoming).join(', ')} (replace=${replace})`);
-    res.json({ success: true, count: Object.keys(merged).length, profiles: settings.listProfiles() });
+    res.json({ success: true, count: Object.keys(merged).length, profiles: await settings.listProfiles() });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-app.post('/api/admin/profiles/:name', requirePin, (req, res) => {
+app.post('/api/admin/profiles/:name', requirePin, async (req, res) => {
   // Only save fields for the profile's own gateway — never store other gateways' credentials in a profile
   const gw = req.body.activeGateway || 'duitnow';
   const otherPrefixes = ['duitnow', 'ampersandpay', 'ecpi'].filter(p => p !== gw);
   const safeBody = Object.fromEntries(
     Object.entries(req.body).filter(([k]) => !otherPrefixes.some(p => k.startsWith(p)))
   );
-  settings.saveProfile(req.params.name, safeBody);
+  await settings.saveProfile(req.params.name, safeBody);
   console.log('[ADMIN] Profile saved: ' + req.params.name + ' (gateway=' + gw + ') | apiUrl=' + safeBody.ampersandpayApiUrl);
-  res.json({ success: true, profiles: settings.listProfiles() });
+  res.json({ success: true, profiles: await settings.listProfiles() });
 });
 
-app.get('/api/admin/profiles/:name/load', requireAuth, (req, res) => {
-  const profile = settings.loadProfile(req.params.name);
+app.get('/api/admin/profiles/:name/load', requireAuth, async (req, res) => {
+  const profile = await settings.loadProfile(req.params.name);
   if (!profile) return res.status(404).json({ error: 'Profile not found' });
   // Only apply fields for the profile's own gateway + general fields.
   // Prevents activating an AmpersandPay profile from wiping DuitNow credentials.
@@ -188,15 +188,15 @@ app.get('/api/admin/profiles/:name/load', requireAuth, (req, res) => {
   const safeProfile = Object.fromEntries(
     Object.entries(profile).filter(([k]) => !otherPrefixes.some(p => k.startsWith(p)))
   );
-  const saved = settings.save({ ...safeProfile, activeProfile: req.params.name });
+  const saved = await settings.save({ ...safeProfile, activeProfile: req.params.name });
   console.log('[ADMIN] Profile loaded: ' + req.params.name + ' (gateway=' + gw + ')');
   res.json(saved);
 });
 
-app.delete('/api/admin/profiles/:name', requirePin, (req, res) => {
-  settings.deleteProfile(req.params.name);
+app.delete('/api/admin/profiles/:name', requirePin, async (req, res) => {
+  await settings.deleteProfile(req.params.name);
   console.log(`[ADMIN] Profile deleted: ${req.params.name}`);
-  res.json({ success: true, profiles: settings.listProfiles() });
+  res.json({ success: true, profiles: await settings.listProfiles() });
 });
 
 app.post('/api/admin/test-signature', requirePin, (req, res) => {
@@ -229,7 +229,7 @@ app.post('/mock/Transaction', async (req, res) => {
   mockTransactions[ref] = { status: 'pending', count: 0, amount: amt, terminal: req.body.TerminalCode, paid: false };
   console.log(`[MOCK J&C] Created: ${ref} - RM${amt}`);
 
-  const s = settings.load();
+  const s = await settings.load();
   const qrPayload = JSON.stringify({
     type: 'DUITNOW', merchant: s.duitnowMerchantCode || 'DEMO',
     ref, amount: amt, currency: 'MYR', server: BASE_URL
@@ -260,7 +260,7 @@ app.post('/mock/Cancellation', (req, res) => {
   res.json({ ResponseCode: '00', ResponseMessage: '' });
 });
 
-app.post('/mock/simulate-pay', (req, res) => {
+app.post('/mock/simulate-pay', async (req, res) => {
   const ref = req.body.referenceNo;
   const txn = mockTransactions[ref];
   if (!txn) return res.json({ success: false, message: 'Transaction not found' });
@@ -269,7 +269,7 @@ app.post('/mock/simulate-pay', (req, res) => {
   txn.paid = true;
   console.log(`[MOCK J&C] Customer paid: ${ref}`);
 
-  const s = settings.load();
+  const s = await settings.load();
   const appCode = s.duitnowAppCode || 'DEMOAPP';
   const merchantCode = s.duitnowMerchantCode || 'DEMOMERCHANT';
   const secretKey = s.duitnowSecretKey || 'DEMOSECRET';
@@ -375,7 +375,7 @@ const createPaymentRouter = require('./routes/payment');
 
 const store = {
   getSettings: async () => {
-    const s = settings.load();
+    const s = await settings.load();
     return {
       duitnowApplicationCode: s.duitnowAppCode || 'DEMOAPP',
       duitnowMerchantCode: s.duitnowMerchantCode || 'DEMOMERCHANT',
@@ -444,8 +444,8 @@ app.get('/pay', (req, res) => { res.set(NO_CACHE); res.sendFile(path.join(__dirn
 app.get('/admin', (req, res) => { res.set(NO_CACHE); res.sendFile(path.join(__dirname, 'admin.html')); });
 
 // Public config (active gateway + tx running no, no PIN required)
-app.get('/api/config', (req, res) => {
-  const s = settings.load();
+app.get('/api/config', async (req, res) => {
+  const s = await settings.load();
   const VALID_GW = ['duitnow', 'ampersandpay', 'ecpi'];
   const gw = VALID_GW.includes(s.activeGateway) ? s.activeGateway : 'duitnow';
   const mask = v => v && v.length > 6 ? '••••••' + v.slice(-6) : v ? '••••••' : '(not set)';
@@ -492,10 +492,10 @@ app.post('/api/payment/paid', async (req, res) => {
 });
 
 // Increment transaction running no + mark transaction as paid (called by POS after successful payment)
-app.post('/api/txno/increment', (req, res) => {
-  const s = settings.load();
+app.post('/api/txno/increment', async (req, res) => {
+  const s = await settings.load();
   const next = (parseInt(s.txRunningNo) || 1) + 1;
-  settings.save({ txRunningNo: next });
+  await settings.save({ txRunningNo: next });
 
   const { referenceNo, externalRefNo, method, paymentMethod } = req.body || {};
   console.log(`[TXNO] increment called, referenceNo="${referenceNo || '(none)'}"`);
@@ -566,8 +566,8 @@ app.get('/api/admin/transactions/cashiers', requireAuth, async (req, res) => {
 });
 
 // Health check
-app.get('/health', (req, res) => {
-  const s = settings.load();
+app.get('/health', async (req, res) => {
+  const s = await settings.load();
   res.json({ status: 'ok', mode: s.duitnowApiUrl ? 'live' : 'sandbox', enabled: s.duitnowEnabled });
 });
 
@@ -576,14 +576,14 @@ schema.init().catch(err => {
   process.exit(1);
 });
 
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', async () => {
   // Ensure data directory exists
   const dataDir = process.env.DATA_DIR || path.join(__dirname);
   if (process.env.DATA_DIR) {
     try { fs.mkdirSync(process.env.DATA_DIR, { recursive: true }); } catch(e) {}
   }
 
-  const s = settings.load();
+  const s = await settings.load();
   const mode = s.duitnowApiUrl ? 'LIVE' : 'SANDBOX';
   console.log(`\n=== DuitNow Payment Gateway ===`);
   console.log(`POS Terminal:  ${BASE_URL}`);
